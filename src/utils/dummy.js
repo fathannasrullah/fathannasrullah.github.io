@@ -1,4 +1,6 @@
-import { BiLogoCss3, BiLogoHtml5, BiLogoJavascript, BiLogoReact, BiLogoSass } from 'react-icons/bi'
+import { BiLogoBootstrap, BiLogoCss3, BiLogoHtml5, BiLogoJavascript, BiLogoJquery, BiLogoReact, BiLogoRedux, BiLogoSass } from 'react-icons/bi'
+import { TbBrandNextjs, TbBrandVite } from 'react-icons/tb'
+import { SiMui, SiStyledcomponents } from 'react-icons/si'
 
 import bookshelf from '../assets/images/bookshelf.png'
 import quotes  from "../assets/images/random-quote-machine.png"
@@ -18,49 +20,123 @@ const data = {
     {
       imageUrl: '',
       title: 'Toko Online',
-      link: 'https://tokoonlineku.vercel.app',
-      /*techLogo: [
-        <BiLogoHtml5 />,
-        <BiLogoCss3 />,
-        <BiLogoJavascript />,
-        <BiLogoReact />,
-        <BiLogoSass />
-      ]*/
-    },
-    {
-      imageUrl: bookshelf,
-      title: "Rak Buku",
-      link: "https://nfathan.github.io/rakbuku/"
-    },
-    {
-      imageUrl: quotes,
-      title: "Random Quote",
-      link: "https://nfathan.github.io/random-quote-machine/"
+      link: {
+        demo: 'https://tokoonlineku.vercel.app',
+        code: 'https://github.com/fathannasrullah/toko-online'
+      },
+      techLogo: [
+        BiLogoHtml5,
+        BiLogoCss3,
+        BiLogoJavascript,
+        BiLogoReact,
+        TbBrandNextjs,
+        SiMui,
+        BiLogoRedux,
+        SiStyledcomponents
+      ]
     },
     {
       imageUrl: '',
       title: 'Users',
-      link: 'https://fathannasrullah.github.io/project/users'
+      link: {
+        demo: 'https://fathannasrullah.github.io/project/users',
+        code: 'https://github.com/fathannasrullah/project'
+      },
+      techLogo: [
+        BiLogoHtml5,
+        BiLogoCss3,
+        BiLogoJavascript,
+        TbBrandVite,
+        BiLogoReact,
+        SiMui,
+        BiLogoRedux,
+        BiLogoSass
+      ]
     },
     {
-      imageUrl: calculator,
-      title: "Calculator",
-      link: "https://nfathan.github.io/calculator-app/"
+      imageUrl: bookshelf,
+      title: "Rak Buku",
+      link: {
+        demo: "https://nfathan.github.io/rakbuku/",
+        code: 'https://gitlab.com/fatan/rakbuku'
+      },
+      techLogo: [
+        BiLogoHtml5,
+        BiLogoCss3,
+        BiLogoJavascript,
+        BiLogoReact,
+        BiLogoSass
+      ]
     },
     {
       imageUrl: piaCianni,
       title: "Pia Cianni",
-      link: "https://nfathan.github.io/piacianni/"
+      link: {
+        demo: "https://nfathan.github.io/piacianni/",
+        code: 'https://github.com/nfathan/piacianni/tree/master'
+      },
+      techLogo: [
+        BiLogoHtml5,
+        BiLogoCss3,
+        BiLogoJavascript,
+        BiLogoJquery,
+        BiLogoBootstrap
+      ]
+    },
+    {
+      imageUrl: quotes,
+      title: "Random Quote",
+      link: {
+        demo: "https://nfathan.github.io/random-quote-machine/",
+        code: 'https://github.com/nfathan/random-quote-machine/tree/main'
+      },
+      techLogo: [
+        BiLogoHtml5,
+        BiLogoCss3,
+        BiLogoJavascript,
+        BiLogoReact
+      ]
+    },
+    {
+      imageUrl: calculator,
+      title: "Calculator",
+      link: {
+        demo: "https://nfathan.github.io/calculator-app/",
+        code: 'https://github.com/nfathan/calculator-app'
+      },
+      techLogo: [
+        BiLogoHtml5,
+        BiLogoCss3,
+        BiLogoJavascript
+      ]
     },
     {
       imageUrl: tictactoe,
       title: "Tictactoe Game",
-      link: "https://nfathan.github.io/tictactoe-game/"
+      link: {
+        demo: "https://nfathan.github.io/tictactoe-game/",
+        code: ''
+      },
+      techLogo: [
+        BiLogoHtml5,
+        BiLogoCss3,
+        BiLogoJavascript,
+        BiLogoReact
+      ]
     },
     {
       imageUrl: kuyMasak,
       title: "Kuy Masak",
-      link: "https://nfathan.github.io/kuy-masak-app/"
+      link: {
+        demo: "https://nfathan.github.io/kuy-masak-app/",
+        code: ''
+      },
+      techLogo: [
+        BiLogoHtml5,
+        BiLogoCss3,
+        BiLogoJavascript,
+        BiLogoBootstrap
+      ]
     }
   ]
 }
