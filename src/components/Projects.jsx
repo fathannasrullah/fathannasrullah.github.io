@@ -14,7 +14,7 @@ import data from "../utils/dummy"
 
 function Projects() {
   const { projects } = data
-  
+  console.log(projects)
   return (
     <div className="container">
       <section className="LinkAbout top" >
@@ -30,7 +30,7 @@ function Projects() {
                   title={projectItem.title}
                   image={projectItem.imageUrl}
                   link={projectItem.link}
-                  //techLogo={projectItem.techLogo}
+                  techLogo={projectItem.techLogo}
                 />
               )
             })

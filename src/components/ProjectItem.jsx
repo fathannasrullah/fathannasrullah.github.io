@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import { BiLogoCss3, BiLogoHtml5 } from 'react-icons/bi'
 
 function ProjectItem(props) {
-  //console.log(props.techLogo)
+  console.log(props.techLogo)
   return (
     <li className="project-item">
       <h1 className="project-title">{props.title}</h1>
@@ -10,19 +10,19 @@ function ProjectItem(props) {
         <img src={props.image} alt="" />
       </div>
       <div className="project-link-container">
-        <a href={props.link}>Live Demo</a>
-        <a href=''>Code</a>
+        <a href={props.link.demo}>Live Demo</a>
+        <a href={props.link.code}>Code</a>
       </div>
       <hr />
       <div className="project-tech-container">
         <p>Tech :</p>
-        {/*<div className='project-tech-logo'>
-          {props.techLogo.maps((logo, index) => (
+        <div className='project-tech-logo'>
+          {props.techLogo.map((Logo, index) => (
             <Fragment key={index}>
-              {logo}
+              <Logo />
             </Fragment>
           ))}
-        </div>*/}
+        </div>
       </div>
     </li>
   )
