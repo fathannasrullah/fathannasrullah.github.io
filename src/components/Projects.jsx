@@ -1,22 +1,23 @@
 import { CgChevronUp } from "react-icons/cg"
 
+import { motion } from "framer-motion"
+
 import LinkAbout from "./LinkAbout"
 import ProjectItem from "./ProjectItem"
-
-import bookshelf  from "../assets/images/bookshelf.png"
-import quotes  from "../assets/images/random-quote-machine.png"
-import piaCianni from "../assets/images/pia-cianni.png"
-import kuyMasak from "../assets/images/kuy-masak.png"
-import calculator from "../assets/images/kalkulator.png"
-import tictactoe from "../assets/images/tic-tac-toe.png"
 
 import data from "../utils/dummy"
 
 function Projects() {
   const { projects } = data
-  console.log(projects)
+
   return (
-    <div className="container">
+    <motion.div
+      className="container"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 3 }}
+    >
       <section className="LinkAbout top" >
         <LinkAbout CgChevronUp={CgChevronUp} />
       </section>
@@ -40,7 +41,7 @@ function Projects() {
       <section className="LinkAbout bottom" >
         <LinkAbout CgChevronUp={CgChevronUp}/>
       </section>
-    </div>
+    </motion.div>
   )
 }
 

@@ -7,9 +7,12 @@ import {
   TiMail, 
   TiSocialLinkedin, 
   TiSocialInstagram, 
-  TiSocialTwitter } from "react-icons/ti";
+  TiSocialTwitter 
+} from "react-icons/ti";
 
 import fathanLogo from "../assets/images/fathan-logo.png"
+
+import { motion } from "framer-motion";
 
 import AppLogo from "./AppLogo";
 import Contact from "./Contact";
@@ -20,7 +23,13 @@ function About() {
   const [showDetails, setShowDetails] = useState(false)
 
   return (
-    <div className="container">
+    <motion.div
+      className="container"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 3 }}
+    >
       <AppLogo logo={fathanLogo} />
       <section className="About"> 
         <div className="About-overview">
@@ -54,7 +63,7 @@ function About() {
         twitter={TiSocialTwitter}
       />
       <LinkProjects CgChevronDown={CgChevronDown}/>
-    </div>
+    </motion.div>
   )
 }
 
