@@ -10,11 +10,7 @@ function AppLogo(props) {
       dragConstraints={{ top: -30, right: 30, bottom: 200, left: -170 }}
       dragTransition={{ bounceStiffness: 600, bounceDamping: 10 }}
       dragElastic={0.5}
-      whileTap={{
-        scale: 2,
-        height: 5,
-        
-      }}
+      whileTap={{ scaleY: 2 }}
     >
       <div className="App-logo-child">
         <Link to="/"> <img src={props.logo} alt="app-logo"/></Link>
