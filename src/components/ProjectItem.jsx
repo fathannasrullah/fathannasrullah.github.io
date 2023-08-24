@@ -1,5 +1,4 @@
 import { Fragment } from 'react'
-import { BiLogoCss3, BiLogoHtml5 } from 'react-icons/bi'
 
 function ProjectItem(props) {
   console.log(props.techLogo)
