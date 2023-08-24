@@ -140,9 +140,9 @@ export default function Home() {
           </Canvas>
         </div>
       </main>
-      <footer className="footer">
+      <div className="footer">
         <LinkProjects title="Scroll" path="/about" />
-      </footer>
+      </div>
     </>
   );
 }
