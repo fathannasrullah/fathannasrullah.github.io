@@ -2,7 +2,6 @@ import { useState } from "react"
 
 import data from '../utils/dummy'
 
-import { CgChevronDown } from "react-icons/cg"
 import {
   TiMail, 
   TiSocialLinkedin, 
@@ -62,7 +61,7 @@ function About() {
         instagram={TiSocialInstagram}
         twitter={TiSocialTwitter}
       />
-      <LinkProjects CgChevronDown={CgChevronDown}/>
+      <LinkProjects />
     </motion.div>
   )
 }

@@ -2,7 +2,9 @@ import { Link } from "react-router-dom"
 
 import { motion } from "framer-motion";
 
-function LinkProjects(props) {
+import { CgChevronDown } from "react-icons/cg"
+
+function LinkProjects({ title = 'Projects', path = '/projects' }) {
   const bounceTransition = {
     delay: 0.5,
     duration: 0.8,
@@ -18,9 +20,9 @@ function LinkProjects(props) {
         y: ["30%","-10%"]
       }}
     >
-      <Link to="/projects">
-        <p>Projects </p>
-        <props.CgChevronDown />
+      <Link to={path}>
+        <p>{title}</p>
+        <CgChevronDown />
       </Link>
     </motion.section>
   )

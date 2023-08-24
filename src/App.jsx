@@ -7,7 +7,7 @@ import {
 import About from './components/About';
 import Projects from './components/Projects';
 
-import Test from './components/test';
+import Home from './components/Home/Home';
 
 import './App.scss';
 
@@ -16,9 +16,9 @@ function App() {
     <Router>
       <div className="App">
         <Routes>
+          <Route path="/" element={<Home />} />
           <Route path="/projects" element={<Projects />} />
-          <Route path="/" element={<About />} />
-          <Route path="/test" element={<Test />} />
+          <Route path="/about" element={<About />} />
         </Routes>
       </div>
     </Router>
