@@ -53,7 +53,7 @@ const Star = ({ p }) => {
   const ref = useRef(null);
 
   useLayoutEffect(() => {
-    const distance = mix(2, 3.5, Math.random());
+    const distance = mix(6, 2.5, Math.random());
     const yAngle = mix(
       degreesToRadians(80),
       degreesToRadians(100),
@@ -71,7 +71,7 @@ const Star = ({ p }) => {
   );
 };
 
-function Scene({ numStars = 100 }) {
+function Scene({ numStars = 150 }) {
   const gl = useThree((state) => state.gl);
   const { scrollYProgress } = useScroll();
   const yAngle = useTransform(
