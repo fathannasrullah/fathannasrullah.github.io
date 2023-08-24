@@ -4,7 +4,6 @@ import { SiMui, SiStyledcomponents } from 'react-icons/si'
 
 import bookshelf from '../assets/images/bookshelf.png'
 import quotes  from "../assets/images/random-quote-machine.png"
-import piaCianni from "../assets/images/pia-cianni.png"
 import kuyMasak from "../assets/images/kuy-masak.png"
 import calculator from "../assets/images/kalkulator.png"
 import tictactoe from "../assets/images/tic-tac-toe.png"
@@ -18,7 +17,7 @@ const data = {
   },
   projects: [
     {
-      imageUrl: '',
+      imageUrl: 'https://imgtr.ee/images/2023/08/24/2fda26a94f79a9a38a487153e41e6f46.jpeg',
       title: 'Toko Online',
       link: {
         demo: 'https://tokoonlineku.vercel.app',
@@ -36,7 +35,7 @@ const data = {
       ]
     },
     {
-      imageUrl: '',
+      imageUrl: 'https://imgtr.ee/images/2023/08/24/de9e15b1676f85d09496016a4846965f.jpeg',
       title: 'Users',
       link: {
         demo: 'https://fathannasrullah.github.io/project/users',
@@ -69,7 +68,7 @@ const data = {
       ]
     },
     {
-      imageUrl: piaCianni,
+      imageUrl: 'https://imgtr.ee/images/2023/08/24/64a0f4cf39cc4e5303ffcf1e2c83ddeb.jpeg',
       title: "Pia Cianni",
       link: {
         demo: "https://nfathan.github.io/piacianni/",
