@@ -349,16 +349,6 @@ $textShadowAfter:
           padding: 0 10px;
         }
       }
-      @media(max-width: 1000px) {
-        .img-box {
-          height: 130px;
-        }
-      }
-      @media(max-width: 670px) {
-        .img-box {
-          height: 160px;
-        }
-      }
 
       p {
         color: $white;
