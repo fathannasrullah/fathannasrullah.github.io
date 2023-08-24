@@ -38,10 +38,10 @@ function Projects() {
           }
         </ul>
       </section>
-      <section className="LinkAbout bottom" >
+      {/*<section className="LinkAbout bottom" >
         <LinkAbout CgChevronUp={CgChevronUp}/>
-      </section>
-    </motion.div>
+        </section>*/}
+      </motion.div>
   )
 }
 
