@@ -38,8 +38,8 @@ const data = {
       imageUrl: 'https://imgtr.ee/images/2023/08/24/de9e15b1676f85d09496016a4846965f.jpeg',
       title: 'Users',
       link: {
-        demo: 'https://fathannasrullah.github.io/project',
-        code: 'https://github.com/fathannasrullah/project'
+        demo: 'https://fathannasrullah.github.io/social',
+        code: 'https://github.com/fathannasrullah/social'
       },
       techLogo: [
         BiLogoHtml5,
