@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 
 function ProjectItem(props) {
-  console.log(props.techLogo)
+
   return (
     <li className="project-item">
       <h1 className="project-title">{props.title}</h1>
