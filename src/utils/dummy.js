@@ -17,7 +17,7 @@ const data = {
   },
   projects: [
     {
-      imageUrl: 'https://imgtr.ee/images/2023/08/24/2fda26a94f79a9a38a487153e41e6f46.jpeg',
+      imageUrl: 'https://i.ibb.co/KstXByB/Tokoonline.jpg',
       title: 'Toko Online',
       link: {
         demo: 'https://tokoonlineku.vercel.app',
@@ -35,7 +35,7 @@ const data = {
       ]
     },
     {
-      imageUrl: 'https://imgtr.ee/images/2023/08/24/de9e15b1676f85d09496016a4846965f.jpeg',
+      imageUrl: 'https://i.ibb.co/G34dvCj/social.jpg',
       title: 'Users',
       link: {
         demo: 'https://fathannasrullah.github.io/social',
@@ -68,7 +68,7 @@ const data = {
       ]
     },
     {
-      imageUrl: 'https://imgtr.ee/images/2023/08/24/64a0f4cf39cc4e5303ffcf1e2c83ddeb.jpeg',
+      imageUrl: 'https://i.ibb.co/JB7SmNd/Pia-cianni.jpg',
       title: "Pia Cianni",
       link: {
         demo: "https://nfathan.github.io/piacianni/",
