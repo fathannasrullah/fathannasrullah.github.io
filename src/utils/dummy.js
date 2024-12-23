@@ -1,6 +1,6 @@
 import { BiLogoBootstrap, BiLogoCss3, BiLogoHtml5, BiLogoJavascript, BiLogoJquery, BiLogoReact, BiLogoRedux, BiLogoSass } from 'react-icons/bi'
 import { TbBrandNextjs, TbBrandVite } from 'react-icons/tb'
-import { SiMui, SiStyledcomponents } from 'react-icons/si'
+import { SiMui, SiStyledcomponents, SiReacthookform, SiVite } from 'react-icons/si'
 
 import bookshelf from '../assets/images/bookshelf.png'
 import quotes  from "../assets/images/random-quote-machine.png"
@@ -12,10 +12,46 @@ const data = {
   about: {
     firstname: "Fathan",
     lastname: "Nasrullah",
-    profession: "Frontend Developer",
+    profession: `" Focusing on the problems users experience. not focusing on what users want "`,
     overview: "Have worked for 3 months as Junior Web Developer at mavis.co.id. Beginner Frontend Developer Certification from Dicoding.com. Then decided to focus on Frontend Developer. Always available to talk about new opportunities."
   },
   projects: [
+    {
+      imageUrl: '',
+      title: 'Pets',
+      link: {
+        demo: 'https://fathannasrullah.github.io/pet',
+        code: 'https://github.com/fathannasrullah/pet'
+      },
+      techLogo: [
+        BiLogoHtml5,
+        BiLogoCss3,
+        BiLogoJavascript,
+        BiLogoReact,
+        SiMui,
+        BiLogoRedux,
+        SiReacthookform,
+        SiStyledcomponents
+      ]
+    },
+    {
+      imageUrl: '',
+      title: 'Social',
+      link: {
+        demo: 'https://fathannasrullah.github.io/social',
+        code: 'https://github.com/fathannasrullah/social'
+      },
+      techLogo: [
+        BiLogoHtml5,
+        BiLogoCss3,
+        BiLogoJavascript,
+        BiLogoReact,
+        TbBrandNextjs,
+        SiMui,
+        SiVite,
+        SiStyledcomponents
+      ]
+    },
     {
       imageUrl: 'https://i.ibb.co/KstXByB/Tokoonline.jpg',
       title: 'Toko Online',

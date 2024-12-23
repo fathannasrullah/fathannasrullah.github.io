@@ -6,7 +6,8 @@ import {
   TiMail, 
   TiSocialLinkedin, 
   TiSocialInstagram, 
-  TiSocialTwitter 
+  TiSocialTwitter,
+  TiSocialGithub
 } from "react-icons/ti";
 
 import fathanLogo from "../assets/images/fathan-logo.png"
@@ -60,6 +61,7 @@ function About() {
         linkedin={TiSocialLinkedin}
         instagram={TiSocialInstagram}
         twitter={TiSocialTwitter}
+        github={TiSocialGithub}
       />
       <LinkProjects />
     </motion.div>
