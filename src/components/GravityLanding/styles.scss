@@ -170,11 +170,11 @@
   gap: 7px;
 }
 
-.gw-legend-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #22e0dd;
+.gw-legend-ship {
+  display: block;
+  width: 13px;
+  height: 13px;
+  filter: drop-shadow(0 0 5px rgba(34, 224, 221, 0.6));
 }
 
 .gw-score {
@@ -271,17 +271,80 @@
 }
 
 .gw-orb {
+  --thrust: 0;
   position: absolute;
   left: 0;
   top: 0;
-  width: 22px;
-  height: 22px;
-  margin: -11px 0 0 -11px;
-  border-radius: 50%;
-  background: #22e0dd;
-  box-shadow: 0 0 22px rgba(34, 224, 221, 0.85), 0 0 60px rgba(34, 224, 221, 0.35);
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
   pointer-events: none;
   will-change: transform;
+  filter: drop-shadow(0 0 10px rgba(34, 224, 221, 0.55))
+    drop-shadow(0 0 calc(14px + var(--thrust) * 22px) rgba(255, 92, 240, calc(0.2 + var(--thrust) * 0.4)));
+}
+
+.gw-ship {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.gw-ship-svg {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.gw-ship-flame {
+  position: absolute;
+  left: 50%;
+  top: 72%;
+  width: 9px;
+  height: calc(9px + var(--thrust) * 26px);
+  transform: translateX(-50%) scaleX(calc(0.55 + var(--thrust) * 0.75));
+  transform-origin: 50% 0;
+  border-radius: 50% 50% 60% 60% / 25% 25% 100% 100%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    #22e0dd 32%,
+    #ff5cf0 72%,
+    rgba(255, 92, 240, 0) 100%
+  );
+  opacity: calc(0.18 + var(--thrust) * 0.82);
+  filter: blur(1.2px);
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 3.5px;
+    height: 55%;
+    transform: translateX(-50%);
+    border-radius: 0 0 60% 60%;
+    background: linear-gradient(180deg, #ffffff, rgba(34, 224, 221, 0));
+    animation: gw-flameFlicker 0.11s steps(2, end) infinite alternate;
+  }
+}
+
+@keyframes gw-flameFlicker {
+  from {
+    opacity: 0.55;
+    transform: translateX(-50%) scaleY(0.78);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gw-ship-flame::after {
+    animation: none;
+  }
 }
 
 .gw-overlay {

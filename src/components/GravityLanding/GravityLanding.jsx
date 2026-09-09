@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 import logo from '../../assets/images/fathan-logo.png';
@@ -22,6 +22,28 @@ const TITLES = { work: 'Projects', career: 'Career', about: 'How I work', contac
 
 const EMAIL = 'fathannasrullah0@gmail.com';
 
+function ShipSvg() {
+  // useId() emits colons, which are unsafe inside an SVG url(#...) reference
+  const hull = `gw-hull-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  return (
+    <svg className="gw-ship-svg" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id={hull} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="55%" stopColor="#d8dbe4" />
+          <stop offset="100%" stopColor="#767d90" />
+        </linearGradient>
+      </defs>
+      <path d="M12 16 L2.5 27 L12 23.5 Z" fill="#ff5cf0" />
+      <path d="M20 16 L29.5 27 L20 23.5 Z" fill="#ff5cf0" />
+      <path d="M16 1 C20 7 22 14.5 22 21.5 L16 25.5 L10 21.5 C10 14.5 12 7 16 1 Z" fill={`url(#${hull})`} />
+      <ellipse cx="16" cy="11.5" rx="3.1" ry="4.8" fill="#08080f" />
+      <ellipse cx="16" cy="10.8" rx="1.9" ry="3.1" fill="#22e0dd" />
+      <rect x="12.8" y="22.4" width="6.4" height="2.8" rx="1.4" fill="#22e0dd" />
+    </svg>
+  );
+}
+
 export default function GravityLanding() {
   const [panel, setPanel] = useState(null);
   const [visited, setVisited] = useState([]);
@@ -29,10 +51,12 @@ export default function GravityLanding() {
 
   const fieldRef = useRef(null);
   const orbRef = useRef(null);
+  const shipRef = useRef(null);
   const glRef = useRef(null);
   const nodeRefs = useRef({});
 
   const orb = useRef({ x: 60, y: 60, vx: 0, vy: 0 });
+  const heading = useRef(0);
   const keys = useRef({});
   const drag = useRef(null);
   const falling = useRef(false);
@@ -69,6 +93,7 @@ export default function GravityLanding() {
     if (orbEl) {
       orbEl.style.transition = 'opacity .5s ease';
       orbEl.style.opacity = '1';
+      orbEl.style.setProperty('--thrust', '0');
     }
     setPanel(null);
   };
@@ -82,17 +107,21 @@ export default function GravityLanding() {
     orb.current.vx = 0;
     orb.current.vy = 0;
     orbEl.style.transition = 'transform .42s cubic-bezier(.5,0,.75,0), opacity .42s ease';
-    orbEl.style.transform = `translate(${cx}px,${cy}px) scale(.05)`;
+    orbEl.style.transform = `translate(${cx}px,${cy}px) rotate(540deg) scale(.05)`;
     orbEl.style.opacity = '0';
     setTimeout(() => openPanel(id), 360);
   };
 
   useEffect(() => {
     const touch = matchMedia('(hover: none)').matches;
-    setHint(touch ? 'drag the dot into a hole — or just tap one' : 'arrows / wasd or drag — fall into a hole to open it');
+    setHint(touch ? 'drag the ship into a hole — or just tap one' : 'arrows / wasd or drag — fly into a hole to open it');
 
     const onKeyDown = (e) => {
-      if (e.key === 'Escape') setPanel(null);
+      if (e.key === 'Escape') {
+        // must go through closePanel, otherwise the ship stays warped out of view
+        if (panelRef.current) closePanel();
+        return;
+      }
       keys.current[e.key.toLowerCase()] = true;
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) e.preventDefault();
     };
@@ -104,6 +133,7 @@ export default function GravityLanding() {
 
     const field = fieldRef.current;
     const orbEl = orbRef.current;
+    const shipEl = shipRef.current;
     const r0 = field.getBoundingClientRect();
     orb.current.x = r0.width * 0.5;
     orb.current.y = r0.height * 0.5;
@@ -114,19 +144,51 @@ export default function GravityLanding() {
       const box = field.getBoundingClientRect();
       const k = keys.current;
       const a = 0.65;
-      if (k.arrowleft || k.a) orb.current.vx -= a;
-      if (k.arrowright || k.d) orb.current.vx += a;
-      if (k.arrowup || k.w) orb.current.vy -= a;
-      if (k.arrowdown || k.s) orb.current.vy += a;
+      let thrusting = false;
+      if (k.arrowleft || k.a) {
+        orb.current.vx -= a;
+        thrusting = true;
+      }
+      if (k.arrowright || k.d) {
+        orb.current.vx += a;
+        thrusting = true;
+      }
+      if (k.arrowup || k.w) {
+        orb.current.vy -= a;
+        thrusting = true;
+      }
+      if (k.arrowdown || k.s) {
+        orb.current.vy += a;
+        thrusting = true;
+      }
       if (drag.current) {
-        orb.current.vx += (drag.current.x - orb.current.x) * 0.14;
-        orb.current.vy += (drag.current.y - orb.current.y) * 0.14;
+        const gx = drag.current.x - orb.current.x;
+        const gy = drag.current.y - orb.current.y;
+        orb.current.vx += gx * 0.14;
+        orb.current.vy += gy * 0.14;
+        if (Math.hypot(gx, gy) > 6) thrusting = true;
       }
       orb.current.vx *= 0.88;
       orb.current.vy *= 0.88;
-      orb.current.x = Math.max(14, Math.min(box.width - 14, orb.current.x + orb.current.vx));
-      orb.current.y = Math.max(14, Math.min(box.height - 14, orb.current.y + orb.current.vy));
-      orbEl.style.transform = `translate(${orb.current.x}px,${orb.current.y}px)`;
+      orb.current.x = Math.max(16, Math.min(box.width - 16, orb.current.x + orb.current.vx));
+      orb.current.y = Math.max(16, Math.min(box.height - 16, orb.current.y + orb.current.vy));
+
+      const speed = Math.hypot(orb.current.vx, orb.current.vy);
+      if (speed > 0.4) {
+        // ship art points up, so heading 0 means -y: offset atan2 by a quarter turn
+        const target = Math.atan2(orb.current.vy, orb.current.vx) + Math.PI / 2;
+        let diff = target - heading.current;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        heading.current += diff * 0.22;
+      }
+
+      if (!falling.current) {
+        orbEl.style.transform = `translate(${orb.current.x}px,${orb.current.y}px)`;
+        shipEl.style.transform = `rotate(${heading.current}rad)`;
+        const thrust = Math.min(1, speed / 5) * (thrusting ? 1 : 0.2);
+        orbEl.style.setProperty('--thrust', thrust.toFixed(3));
+      }
 
       if (!panelRef.current && !falling.current && Date.now() > cooldown.current) {
         NODE_DEFS.forEach((n) => {
@@ -304,7 +366,9 @@ export default function GravityLanding() {
             <span>{displayedHint}</span>
             <span className="gw-game-bar-right">
               <span className="gw-legend">
-                <span className="gw-legend-dot" />
+                <span className="gw-legend-ship">
+                  <ShipSvg />
+                </span>
                 that&apos;s you
               </span>
               <span className="gw-score">{score}</span>
@@ -351,7 +415,12 @@ export default function GravityLanding() {
               </button>
             ))}
 
-            <div ref={orbRef} className="gw-orb" />
+            <div ref={orbRef} className="gw-orb">
+              <div ref={shipRef} className="gw-ship">
+                <span className="gw-ship-flame" />
+                <ShipSvg />
+              </div>
+            </div>
           </div>
         </section>
       </main>
