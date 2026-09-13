@@ -11,23 +11,23 @@ import './styles.scss';
 // NASRULLAH floats above it.
 const FATHAN = [
   { ch: 'F', delay: 0.1, z: 0 },
-  { ch: 'a', delay: 0.16, z: 26 },
-  { ch: 't', delay: 0.22, z: 48 },
-  { ch: 'h', delay: 0.28, z: 48 },
-  { ch: 'a', delay: 0.34, z: 26 },
+  { ch: 'a', delay: 0.16, z: 7 },
+  { ch: 't', delay: 0.22, z: 13 },
+  { ch: 'h', delay: 0.28, z: 13 },
+  { ch: 'a', delay: 0.34, z: 7 },
   { ch: 'n', delay: 0.4, z: 0 }
 ];
 
 const NASRULLAH = [
-  { ch: 'N', delay: 0.46, z: 66 },
-  { ch: 'a', delay: 0.51, z: 84 },
-  { ch: 's', delay: 0.56, z: 98 },
-  { ch: 'r', delay: 0.61, z: 110 },
-  { ch: 'u', delay: 0.66, z: 110 },
-  { ch: 'l', delay: 0.71, z: 98 },
-  { ch: 'l', delay: 0.76, z: 84 },
-  { ch: 'a', delay: 0.81, z: 66 },
-  { ch: 'h', delay: 0.86, z: 44 }
+  { ch: 'N', delay: 0.46, z: 16 },
+  { ch: 'a', delay: 0.51, z: 21 },
+  { ch: 's', delay: 0.56, z: 25 },
+  { ch: 'r', delay: 0.61, z: 28 },
+  { ch: 'u', delay: 0.66, z: 28 },
+  { ch: 'l', delay: 0.71, z: 25 },
+  { ch: 'l', delay: 0.76, z: 21 },
+  { ch: 'a', delay: 0.81, z: 16 },
+  { ch: 'h', delay: 0.86, z: 11 }
 ];
 
 const NODE_DEFS = [
@@ -117,6 +117,9 @@ export default function GravityLanding() {
   // enough: the wells are placed by percentage, so on a short field they crowd the
   // spawn point and the ship was captured before anyone touched it.
   const engaged = useRef(false);
+  // Nothing behind an opaque dialog is visible, so the particle wave stops rendering
+  // while one is open. Measured 24 -> 30fps on top of dropping the backdrop blur.
+  const bgPaused = useRef(false);
 
   // Field geometry, measured on mount and on resize instead of every animation frame.
   // The old loop called getBoundingClientRect five times per frame — 300 forced layouts
@@ -125,6 +128,7 @@ export default function GravityLanding() {
 
   useEffect(() => {
     panelRef.current = panel;
+    bgPaused.current = Boolean(panel);
   }, [panel]);
 
   const measure = useCallback(() => {
@@ -275,7 +279,7 @@ export default function GravityLanding() {
         });
       }
     };
-    extrude(-11, 6);
+    extrude(-7, 4);
 
     if (reduced) {
       return () => {
@@ -294,7 +298,7 @@ export default function GravityLanding() {
     const tick = () => {
       if (drifting && visible && !document.hidden) {
         const phase = Math.sin((((performance.now() - t0) / 7000) % 1) * Math.PI * 2);
-        extrude(-1 + phase * 10, 4 + phase * 2);
+        extrude(-1 + phase * 6, 3 + phase * 1.5);
       }
       timer = setTimeout(tick, 120);
     };
@@ -314,8 +318,8 @@ export default function GravityLanding() {
       const b = hero.getBoundingClientRect();
       const x = (e.clientX - b.left) / b.width - 0.5;
       const y = (e.clientY - b.top) / b.height - 0.5;
-      const ty = x * 34;
-      const tx = -y * 20;
+      const ty = x * 20;
+      const tx = -y * 12;
       if (h1) {
         h1.style.transition = 'none';
         h1.style.transform = `rotateY(${ty.toFixed(1)}deg) rotateX(${tx.toFixed(1)}deg)`;
@@ -567,7 +571,7 @@ export default function GravityLanding() {
     let raf;
     const loop = (now) => {
       raf = requestAnimationFrame(loop);
-      if (document.hidden) return;
+      if (document.hidden || bgPaused.current) return;
       const t = (now - t0) / 1000;
       for (let k = 0; k < base.length / 2; k++) {
         const px = base[k * 2];
@@ -643,9 +647,16 @@ export default function GravityLanding() {
             <img src={logo} alt="Fathan" className="gw-header-logo" />
             <span className="gw-header-label">software engineer · id</span>
           </div>
-          <a href={`mailto:${EMAIL}`} className="gw-hi">
+          <button
+            type="button"
+            className="gw-hi"
+            onClick={(e) => {
+              lastFocused.current = e.currentTarget;
+              openPanel('contact');
+            }}
+          >
             say hi
-          </a>
+          </button>
         </header>
 
         <section className="gw-hero" ref={heroRef}>
@@ -772,46 +783,74 @@ export default function GravityLanding() {
             </div>
 
             {panel === 'work' && (
-              <div>
-                {data.projects.map((p) => (
-                  <a key={p.title} href={p.demo} target="_blank" rel="noreferrer" className="gw-work-row">
-                    <span className="gw-work-thumb">{p.img && <img src={p.img} alt="" loading="lazy" />}</span>
-                    <span className="gw-work-body">
-                      <span className="gw-work-title">{p.title}</span>
-                      <span className="gw-work-stack">{p.stack}</span>
-                    </span>
-                    <span className="gw-work-arrow">↗</span>
-                  </a>
+              <div className="gw-work">
+                {[
+                  { key: 'commercial', label: 'Client work', rows: data.projects.commercial },
+                  { key: 'personal', label: 'Personal', rows: data.projects.personal }
+                ].map((group) => (
+                  <section key={group.key} className="gw-work-group">
+                    <div className="gw-work-grouphead">
+                      <span className="gw-work-groupname">{group.label}</span>
+                      <span className="gw-work-grouprule" />
+                      <span className="gw-work-groupcount">{group.rows.length}</span>
+                    </div>
+                    {group.rows.map((p) => {
+                      const body = (
+                        <>
+                          <span className="gw-work-thumb">{p.img && <img src={p.img} alt="" loading="lazy" />}</span>
+                          <span className="gw-work-body">
+                            <span className="gw-work-title">
+                              {p.title}
+                              {p.client && <span className="gw-work-client">{p.client}</span>}
+                            </span>
+                            <span className="gw-work-stack">{p.stack}</span>
+                          </span>
+                          <span className="gw-work-arrow">{p.demo ? '↗' : 'internal'}</span>
+                        </>
+                      );
+                      // Client products have no public URL — a plain row beats a dead link.
+                      return p.demo ? (
+                        <a
+                          key={`${p.title}-${p.client || ''}`}
+                          href={p.demo}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="gw-work-row"
+                        >
+                          {body}
+                        </a>
+                      ) : (
+                        <div key={`${p.title}-${p.client || ''}`} className="gw-work-row gw-work-row--static">
+                          {body}
+                        </div>
+                      );
+                    })}
+                  </section>
                 ))}
               </div>
             )}
 
             {panel === 'career' && (
-              <div className="gw-career">
-                <div className="gw-career-item">
-                  <span className="gw-career-tag gw-career-tag--now">now</span>
-                  <div>
-                    <div className="gw-career-title">Building software, end to end</div>
-                    <p className="gw-career-desc">
-                      React, Next.js and design systems on the front, with enough backend to ship a whole feature myself.
-                    </p>
-                  </div>
-                </div>
-                <div className="gw-career-item">
-                  <span className="gw-career-tag">3 mo</span>
-                  <div>
-                    <div className="gw-career-title">Junior Web Developer · mavis.co.id</div>
-                    <p className="gw-career-desc">Worked on production web features with a real team and real deadlines.</p>
-                  </div>
-                </div>
-                <div className="gw-career-item">
-                  <span className="gw-career-tag">cert</span>
-                  <div>
-                    <div className="gw-career-title">Frontend Developer · Dicoding</div>
-                    <p className="gw-career-desc">Beginner Frontend Developer certification.</p>
-                  </div>
-                </div>
-              </div>
+              <ol className="gw-career">
+                {data.career.map((job) => (
+                  <li key={`${job.role}-${job.period}`} className="gw-career-item">
+                    <span className="gw-career-rail" aria-hidden="true">
+                      <span className={`gw-career-dot${job.now ? ' gw-career-dot--now' : ''}`} />
+                    </span>
+                    <div className="gw-career-body">
+                      <div className="gw-career-title">{job.role}</div>
+                      <div className="gw-career-company">{job.company}</div>
+                      {job.detail && <p className="gw-career-desc">{job.detail}</p>}
+                      <div className="gw-career-meta">
+                        <span className={job.now ? 'gw-career-period gw-career-period--now' : 'gw-career-period'}>
+                          {job.period}
+                        </span>
+                        <span className="gw-career-place">{job.place}</span>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             )}
 
             {panel === 'about' && (
@@ -834,8 +873,22 @@ export default function GravityLanding() {
                     <div className="gw-about-card-body">Small release, real users, then fix what breaks.</div>
                   </div>
                 </div>
-                <div className="gw-about-stack">
-                  React · Next.js · TypeScript · Redux · MUI · Sass · Styled Components · Vite · React Hook Form
+                <div className="gw-marquee">
+                  {/* duplicated so the -50% loop has somewhere to scroll into */}
+                  <div className="gw-marquee-track" aria-hidden="true">
+                    {[0, 1].map((pass) =>
+                      data.skills.map((s) => (
+                        <span key={`${pass}-${s.group}`} className="gw-marquee-cell">
+                          <span className="gw-marquee-group">{s.group}</span>
+                          <span className="gw-marquee-items">{s.items.join(' · ')}</span>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  {/* the real, readable copy for assistive tech and search */}
+                  <p className="gw-sr-only">
+                    {data.skills.map((s) => `${s.group}: ${s.items.join(', ')}`).join('. ')}
+                  </p>
                 </div>
               </div>
             )}
