@@ -54,10 +54,6 @@ const TURN = 0.22;
 const PULL_R = 2.6;
 const CAPTURE_R = 0.55;
 
-const FOV = 50;
-const GRID_SPACING = 14;
-const WELL_DEPTH = 72;
-
 function ShipSvg() {
   // useId() emits colons, which are unsafe inside an SVG url(#...) reference
   const hull = `gw-hull-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
@@ -409,209 +405,103 @@ export default function GravityLanding() {
     };
   }, [measure, closePanel, fallIn, spawnPoint]);
 
-  /* ───────────────────────── the field as a 3D surface ───────────────────────── */
+  /* ───────────────────────── background ───────────────────────── */
 
   useEffect(() => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
     const canvas = glRef.current;
-    const field = fieldRef.current;
-    if (!canvas || !field) return;
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!canvas) return undefined;
 
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 100);
+    camera.position.set(0, 4.2, 11);
+    camera.lookAt(0, -0.4, 0);
 
-    // The camera looks straight down at the plane, so world x/z map 1:1 onto field
-    // pixels and the DOM wells stay registered with the mesh. Depth reads because a
-    // dip pulls its points away from the camera: they converge inward and shrink.
-    const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 6000);
-    camera.up.set(0, 0, -1);
-
+    const COLS = 100;
+    const ROWS = 58;
+    const SP = 0.28;
+    const pos = new Float32Array(COLS * ROWS * 3);
+    const col = new Float32Array(COLS * ROWS * 3);
+    const base = [];
     const cyan = new THREE.Color('#22e0dd');
     const mag = new THREE.Color('#ff5cf0');
     const tmp = new THREE.Color();
-
-    let geo = null;
-    let mesh = null;
-    let base = [];
-    let colAttr = null;
-    let sizeAttr = null;
-    let baseCol = null;
-    let pendingScale = 400;
-
-    // Depth has to come from the dots themselves, not from where they sit: seen from
-    // straight above, a sinking dot only drifts toward the middle of the screen. So each
-    // one carries its own size and brightness — they crowd into a bright ring at the lip
-    // of a well, then shrink and dim as they fall down the throat.
-    const dotMaterial = () =>
-      new THREE.ShaderMaterial({
-        uniforms: { uScale: { value: 400 }, uOpacity: { value: 0 } },
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        vertexShader: `
-          uniform float uScale;
-          attribute float aSize;
-          varying vec3 vColor;
-          void main() {
-            vColor = color;
-            vec4 mv = modelViewMatrix * vec4(position, 1.0);
-            gl_PointSize = aSize * (uScale / -mv.z);
-            gl_Position = projectionMatrix * mv;
-          }
-        `,
-        fragmentShader: `
-          uniform float uOpacity;
-          varying vec3 vColor;
-          void main() {
-            float d = length(gl_PointCoord - vec2(0.5));
-            if (d > 0.5) discard;
-            float a = smoothstep(0.5, 0.08, d);
-            gl_FragColor = vec4(vColor, a * uOpacity);
-          }
-        `,
-        vertexColors: true
-      });
-
-    const build = (w, h) => {
-      if (mesh) {
-        scene.remove(mesh);
-        geo.dispose();
-        mesh.material.dispose();
+    let i = 0;
+    for (let x = 0; x < COLS; x++) {
+      for (let z = 0; z < ROWS; z++) {
+        const px = (x - COLS / 2) * SP;
+        const pz = (z - ROWS / 2) * SP;
+        base.push(px, pz);
+        pos[i * 3] = px;
+        pos[i * 3 + 2] = pz;
+        tmp.copy(cyan).lerp(mag, (x / COLS) * 0.85 + Math.random() * 0.15);
+        const fade = 1 - Math.min(1, Math.hypot(px, pz) / 12);
+        col[i * 3] = tmp.r * fade;
+        col[i * 3 + 1] = tmp.g * fade;
+        col[i * 3 + 2] = tmp.b * fade;
+        i++;
       }
-      const cols = Math.max(6, Math.round(w / GRID_SPACING));
-      const rows = Math.max(6, Math.round(h / GRID_SPACING));
-      const count = cols * rows;
-      const pos = new Float32Array(count * 3);
-      const col = new Float32Array(count * 3);
-      const siz = new Float32Array(count);
-      base = new Float32Array(count * 2);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.PointsMaterial({
+      size: 0.045,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0,
+      sizeAttenuation: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const points = new THREE.Points(geo, mat);
+    scene.add(points);
 
-      let i = 0;
-      for (let cx = 0; cx < cols; cx++) {
-        for (let cz = 0; cz < rows; cz++) {
-          const x = (cx / (cols - 1) - 0.5) * w;
-          const z = (cz / (rows - 1) - 0.5) * h;
-          base[i * 2] = x;
-          base[i * 2 + 1] = z;
-          pos[i * 3] = x;
-          pos[i * 3 + 2] = z;
-          tmp.copy(cyan).lerp(mag, cx / (cols - 1));
-          col[i * 3] = tmp.r;
-          col[i * 3 + 1] = tmp.g;
-          col[i * 3 + 2] = tmp.b;
-          siz[i] = 2;
-          i++;
-        }
-      }
-
-      geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      baseCol = Float32Array.from(col);
-      colAttr = new THREE.BufferAttribute(col, 3);
-      geo.setAttribute('color', colAttr);
-      sizeAttr = new THREE.BufferAttribute(siz, 1);
-      geo.setAttribute('aSize', sizeAttr);
-      mesh = new THREE.Points(geo, dotMaterial());
-      mesh.material.uniforms.uScale.value = pendingScale;
-      scene.add(mesh);
+    const mouse = { x: 0, z: 0, on: 0 };
+    const onMove = (e) => {
+      mouse.x = ((e.clientX / innerWidth) * 2 - 1) * 8;
+      mouse.z = ((e.clientY / innerHeight) * 2 - 1) * 5 + 1;
+      mouse.on = 1;
     };
-
+    addEventListener('pointermove', onMove, { passive: true });
     const resize = () => {
-      const w = field.clientWidth;
-      const h = field.clientHeight;
-      if (!w || !h) return;
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      const buf = renderer.getDrawingBufferSize(new THREE.Vector2());
-      pendingScale = buf.y / (2 * Math.tan((FOV * Math.PI) / 360));
-      // height that makes the y=0 plane exactly fill the field
-      camera.position.set(0, h / (2 * Math.tan((FOV * Math.PI) / 360)), 0);
-      camera.lookAt(0, 0, 0);
+      renderer.setSize(innerWidth, innerHeight, false);
+      camera.aspect = innerWidth / innerHeight;
       camera.updateProjectionMatrix();
-      build(w, h);
     };
     resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(field);
+    addEventListener('resize', resize);
 
+    const arr = geo.attributes.position.array;
     const t0 = performance.now();
     let raf;
     const loop = (now) => {
       raf = requestAnimationFrame(loop);
-      if (document.hidden || !geo) return;
+      if (document.hidden) return;
       const t = (now - t0) / 1000;
-      const { w, h, wells } = layout.current;
-      if (!w || !h) return;
-      const arr = geo.attributes.position.array;
-      const n = geo.attributes.position.count;
-      const cArr = colAttr.array;
-      const sArr = sizeAttr.array;
-
-      const shipX = orb.current.x - w / 2;
-      const shipZ = orb.current.y - h / 2;
-
-      for (let i = 0; i < n; i++) {
-        const bx = base[i * 2];
-        const bz = base[i * 2 + 1];
-        let y = reduced ? 0 : Math.sin(bx * 0.012 + t * 0.6) * 3 + Math.cos(bz * 0.015 - t * 0.45) * 2.5;
-        let px = bx;
-        let pz = bz;
-        let glow = 0;
-
-        for (let k = 0; k < wells.length; k++) {
-          const wl = wells[k];
-          const dx = bx - (wl.cx - w / 2);
-          const dz = bz - (wl.cy - h / 2);
-          const sigma = wl.r * 1.7;
-          const g = Math.exp(-(dx * dx + dz * dz) / (2 * sigma * sigma));
-          y -= WELL_DEPTH * g;
-          // Drawing the dots inward is what makes the funnel legible: they bunch up into
-          // a dense ring at the lip instead of leaving a bare patch.
-          px -= dx * g * 0.44;
-          pz -= dz * g * 0.44;
-          if (g > glow) glow = g;
-        }
-
-        // the ship pushes a shallow dent of its own
-        const sdx = bx - shipX;
-        const sdz = bz - shipZ;
-        const sg = Math.exp(-(sdx * sdx + sdz * sdz) / 2600);
-        y -= 26 * sg;
-
-        arr[i * 3] = px;
-        arr[i * 3 + 1] = y;
-        arr[i * 3 + 2] = pz;
-
-        // Bright and fat on the lip, small and dim down the throat — that contrast is
-        // what a flat field of evenly-sized dots was missing.
-        const rim = Math.exp(-Math.pow(glow - 0.38, 2) / 0.07);
-        const bright = 0.4 + rim * 1.35 + sg * 1.1 - glow * 0.3;
-        const bi = i * 3;
-        cArr[bi] = baseCol[bi] * bright;
-        cArr[bi + 1] = baseCol[bi + 1] * bright;
-        cArr[bi + 2] = baseCol[bi + 2] * bright;
-        sArr[i] = Math.max(0.35, 1.7 + rim * 1.9 + sg * 1.6 - glow * 1.4);
+      for (let k = 0; k < base.length / 2; k++) {
+        const px = base[k * 2];
+        const pz = base[k * 2 + 1];
+        let y = Math.sin(px * 0.42 + t * 0.72) * 0.34 + Math.cos(pz * 0.5 - t * 0.52) * 0.28;
+        const d = Math.hypot(px - mouse.x, pz - mouse.z);
+        if (d < 3.4) y += Math.cos(d * 1.5 - t * 3.2) * (1 - d / 3.4) * 0.95 * mouse.on;
+        arr[k * 3 + 1] = y;
       }
-
       geo.attributes.position.needsUpdate = true;
-      colAttr.needsUpdate = true;
-      sizeAttr.needsUpdate = true;
-      const u = mesh.material.uniforms;
-      if (u.uOpacity.value < 0.95) u.uOpacity.value = Math.min(0.95, t / 1.2);
+      points.rotation.y = Math.sin(t * 0.06) * 0.12;
+      if (mat.opacity < 0.95) mat.opacity = Math.min(0.95, t / 1.4);
       renderer.render(scene, camera);
     };
     raf = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(raf);
-      ro.disconnect();
-      if (mesh) {
-        scene.remove(mesh);
-        mesh.material.dispose();
-      }
-      if (geo) geo.dispose();
+      removeEventListener('pointermove', onMove);
+      removeEventListener('resize', resize);
       renderer.dispose();
+      geo.dispose();
     };
   }, []);
 
@@ -656,6 +546,7 @@ export default function GravityLanding() {
 
   return (
     <div className="gw">
+      <canvas ref={glRef} className="gw-canvas" />
       <div className="gw-glow" />
 
       <main className="gw-main">
@@ -726,7 +617,7 @@ export default function GravityLanding() {
               drag.current = null;
             }}
           >
-            <canvas ref={glRef} className="gw-field-canvas" />
+            <div className="gw-field-grid" />
 
             {NODE_DEFS.map((n) => (
               <button
