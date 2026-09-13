@@ -55,8 +55,8 @@ const PULL_R = 2.6;
 const CAPTURE_R = 0.55;
 
 const FOV = 50;
-const GRID_SPACING = 26;
-const WELL_DEPTH = 115;
+const GRID_SPACING = 14;
+const WELL_DEPTH = 72;
 
 function ShipSvg() {
   // useId() emits colons, which are unsafe inside an SVG url(#...) reference
@@ -435,11 +435,44 @@ export default function GravityLanding() {
     let mesh = null;
     let base = [];
     let colAttr = null;
+    let sizeAttr = null;
     let baseCol = null;
+    let pendingScale = 400;
 
-    // Loose points read as ambiguous specks: from a top-down camera a point that sinks
-    // just drifts toward the middle of the screen. A connected line grid shows the
-    // surface itself, so a depression reads as a funnel the way it should.
+    // Depth has to come from the dots themselves, not from where they sit: seen from
+    // straight above, a sinking dot only drifts toward the middle of the screen. So each
+    // one carries its own size and brightness — they crowd into a bright ring at the lip
+    // of a well, then shrink and dim as they fall down the throat.
+    const dotMaterial = () =>
+      new THREE.ShaderMaterial({
+        uniforms: { uScale: { value: 400 }, uOpacity: { value: 0 } },
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        vertexShader: `
+          uniform float uScale;
+          attribute float aSize;
+          varying vec3 vColor;
+          void main() {
+            vColor = color;
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = aSize * (uScale / -mv.z);
+            gl_Position = projectionMatrix * mv;
+          }
+        `,
+        fragmentShader: `
+          uniform float uOpacity;
+          varying vec3 vColor;
+          void main() {
+            float d = length(gl_PointCoord - vec2(0.5));
+            if (d > 0.5) discard;
+            float a = smoothstep(0.5, 0.08, d);
+            gl_FragColor = vec4(vColor, a * uOpacity);
+          }
+        `,
+        vertexColors: true
+      });
+
     const build = (w, h) => {
       if (mesh) {
         scene.remove(mesh);
@@ -451,12 +484,12 @@ export default function GravityLanding() {
       const count = cols * rows;
       const pos = new Float32Array(count * 3);
       const col = new Float32Array(count * 3);
+      const siz = new Float32Array(count);
       base = new Float32Array(count * 2);
 
-      const at = (cx, cz) => cx * rows + cz;
+      let i = 0;
       for (let cx = 0; cx < cols; cx++) {
         for (let cz = 0; cz < rows; cz++) {
-          const i = at(cx, cz);
           const x = (cx / (cols - 1) - 0.5) * w;
           const z = (cz / (rows - 1) - 0.5) * h;
           base[i * 2] = x;
@@ -467,14 +500,8 @@ export default function GravityLanding() {
           col[i * 3] = tmp.r;
           col[i * 3 + 1] = tmp.g;
           col[i * 3 + 2] = tmp.b;
-        }
-      }
-
-      const idx = [];
-      for (let cx = 0; cx < cols; cx++) {
-        for (let cz = 0; cz < rows; cz++) {
-          if (cz < rows - 1) idx.push(at(cx, cz), at(cx, cz + 1));
-          if (cx < cols - 1) idx.push(at(cx, cz), at(cx + 1, cz));
+          siz[i] = 2;
+          i++;
         }
       }
 
@@ -483,15 +510,10 @@ export default function GravityLanding() {
       baseCol = Float32Array.from(col);
       colAttr = new THREE.BufferAttribute(col, 3);
       geo.setAttribute('color', colAttr);
-      geo.setIndex(idx);
-      const mat = new THREE.LineBasicMaterial({
-        vertexColors: true,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending
-      });
-      mesh = new THREE.LineSegments(geo, mat);
+      sizeAttr = new THREE.BufferAttribute(siz, 1);
+      geo.setAttribute('aSize', sizeAttr);
+      mesh = new THREE.Points(geo, dotMaterial());
+      mesh.material.uniforms.uScale.value = pendingScale;
       scene.add(mesh);
     };
 
@@ -501,6 +523,8 @@ export default function GravityLanding() {
       if (!w || !h) return;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
+      const buf = renderer.getDrawingBufferSize(new THREE.Vector2());
+      pendingScale = buf.y / (2 * Math.tan((FOV * Math.PI) / 360));
       // height that makes the y=0 plane exactly fill the field
       camera.position.set(0, h / (2 * Math.tan((FOV * Math.PI) / 360)), 0);
       camera.lookAt(0, 0, 0);
@@ -520,13 +544,14 @@ export default function GravityLanding() {
       const { w, h, wells } = layout.current;
       if (!w || !h) return;
       const arr = geo.attributes.position.array;
-      const cols = geo.attributes.position.count;
+      const n = geo.attributes.position.count;
       const cArr = colAttr.array;
+      const sArr = sizeAttr.array;
 
       const shipX = orb.current.x - w / 2;
       const shipZ = orb.current.y - h / 2;
 
-      for (let i = 0; i < cols; i++) {
+      for (let i = 0; i < n; i++) {
         const bx = base[i * 2];
         const bz = base[i * 2 + 1];
         let y = reduced ? 0 : Math.sin(bx * 0.012 + t * 0.6) * 3 + Math.cos(bz * 0.015 - t * 0.45) * 2.5;
@@ -538,37 +563,42 @@ export default function GravityLanding() {
           const wl = wells[k];
           const dx = bx - (wl.cx - w / 2);
           const dz = bz - (wl.cy - h / 2);
-          const sigma = wl.r * 1.5;
+          const sigma = wl.r * 1.7;
           const g = Math.exp(-(dx * dx + dz * dz) / (2 * sigma * sigma));
           y -= WELL_DEPTH * g;
-          // gather the surrounding grid toward the mouth, the way a funnel does
-          px -= dx * g * 0.34;
-          pz -= dz * g * 0.34;
+          // Drawing the dots inward is what makes the funnel legible: they bunch up into
+          // a dense ring at the lip instead of leaving a bare patch.
+          px -= dx * g * 0.44;
+          pz -= dz * g * 0.44;
           if (g > glow) glow = g;
         }
 
-        // the ship presses its own shallow dent into the surface
+        // the ship pushes a shallow dent of its own
         const sdx = bx - shipX;
         const sdz = bz - shipZ;
-        const sg = Math.exp(-(sdx * sdx + sdz * sdz) / 2200);
-        y -= 30 * sg;
+        const sg = Math.exp(-(sdx * sdx + sdz * sdz) / 2600);
+        y -= 26 * sg;
 
         arr[i * 3] = px;
         arr[i * 3 + 1] = y;
         arr[i * 3 + 2] = pz;
 
-        // the rim lights up as the surface bends; the throat falls away into the dark
-        const rim = Math.exp(-Math.pow(glow - 0.34, 2) / 0.035);
-        const k2 = 0.32 + rim * 1.5 + sg * 0.9 - glow * 0.22;
+        // Bright and fat on the lip, small and dim down the throat — that contrast is
+        // what a flat field of evenly-sized dots was missing.
+        const rim = Math.exp(-Math.pow(glow - 0.38, 2) / 0.07);
+        const bright = 0.4 + rim * 1.35 + sg * 1.1 - glow * 0.3;
         const bi = i * 3;
-        cArr[bi] = baseCol[bi] * k2;
-        cArr[bi + 1] = baseCol[bi + 1] * k2;
-        cArr[bi + 2] = baseCol[bi + 2] * k2;
+        cArr[bi] = baseCol[bi] * bright;
+        cArr[bi + 1] = baseCol[bi + 1] * bright;
+        cArr[bi + 2] = baseCol[bi + 2] * bright;
+        sArr[i] = Math.max(0.35, 1.7 + rim * 1.9 + sg * 1.6 - glow * 1.4);
       }
 
       geo.attributes.position.needsUpdate = true;
       colAttr.needsUpdate = true;
-      if (mesh.material.opacity < 0.8) mesh.material.opacity = Math.min(0.8, t / 1.2);
+      sizeAttr.needsUpdate = true;
+      const u = mesh.material.uniforms;
+      if (u.uOpacity.value < 0.95) u.uOpacity.value = Math.min(0.95, t / 1.2);
       renderer.render(scene, camera);
     };
     raf = requestAnimationFrame(loop);
