@@ -1,26 +1,99 @@
+:root {
+  /* ── ground & surfaces: cool-biased neutrals, pulled toward the cyan accent ── */
+  --ground: #08080b;
+  --surface-0: #0a0a0f;
+  --surface-1: #101017;
+  --surface-2: #16161f;
+  --surface-3: #1b1b26;
+
+  /* ── lines: replaces 11 ad-hoc alphas ── */
+  --line-subtle: rgba(226, 232, 240, 0.06);
+  --line: rgba(226, 232, 240, 0.11);
+  --line-strong: rgba(226, 232, 240, 0.18);
+
+  /* ── text: replaces 5 ad-hoc alphas, all on the one warm white ── */
+  --text: #f2f1ee;
+  --text-muted: rgba(242, 241, 238, 0.72);
+  --text-faint: rgba(242, 241, 238, 0.52);
+
+  /* ── accents ── */
+  --cyan: #22e0dd;
+  --magenta: #ff5cf0;
+
+  /* ── elevation: rim-light on the top edge + layered ambient shadow ── */
+  --e0: inset 0 1px 3px rgba(0, 0, 0, 0.55);
+  --e1: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --e2: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 20px -8px rgba(0, 0, 0, 0.7);
+  --e3: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 4px 8px rgba(0, 0, 0, 0.45), 0 24px 56px -16px rgba(0, 0, 0, 0.85);
+
+  /* ── radius ── */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-pill: 999px;
+
+  /* ── motion ── */
+  --t-fast: 140ms;
+  --t-base: 240ms;
+  --t-enter: 400ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* ── type ── */
+  --display: 'Space Grotesk', system-ui, sans-serif;
+  --body: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ── type scale: replaces 12 loose font-size values ── */
+  --fs-hero: clamp(46px, 11vw, 132px);
+  --fs-h1: clamp(24px, 4vw, 38px);
+  --fs-h2: 18px;
+  --fs-body: 15px;
+  --fs-small: 13.5px;
+  --fs-label: 11.5px;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: #08080b;
-  color: #f2f1ee;
-  font-family: 'Space Grotesk', system-ui, sans-serif;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
 a {
-  color: #f2f1ee;
+  color: var(--text);
   text-decoration: none;
 }
 
 a:hover {
-  color: #22e0dd;
+  color: var(--cyan);
 }
 
 ::selection {
-  background: #22e0dd;
-  color: #08080b;
+  background: var(--cyan);
+  color: var(--ground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
 }

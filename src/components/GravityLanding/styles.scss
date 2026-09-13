@@ -3,16 +3,9 @@
   min-height: 100vh;
 }
 
-.gw-canvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
-  display: block;
-}
-
+/* The ambient glow is all that sits behind the page now. The particle mesh used to
+   cover the whole viewport and ran straight through the headline and the hint line;
+   it lives inside the play field instead, where it means something. */
 .gw-glow {
   position: fixed;
   inset: 0;
@@ -33,6 +26,8 @@
   display: flex;
   flex-direction: column;
 }
+
+/* ─────────────────────────── header ─────────────────────────── */
 
 .gw-header {
   display: flex;
@@ -55,45 +50,66 @@
 }
 
 .gw-header-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11.5px;
+  font-family: var(--mono);
+  font-size: var(--fs-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(242, 241, 238, 0.55);
+  color: var(--text-faint);
 }
 
 .gw-hi {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 12px;
   padding: 9px 15px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid rgba(34, 224, 221, 0.4);
-  color: #22e0dd;
+  background: var(--surface-1);
+  box-shadow: var(--e1);
+  color: var(--cyan);
   white-space: nowrap;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    transform var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
 
   &:hover {
-    background: #22e0dd;
-    color: #08080b;
+    transform: translateY(-1px);
+    box-shadow: var(--e2);
+    background: var(--cyan);
+    color: var(--ground);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: var(--e0);
   }
 }
 
+/* ─────────────────────────── hero ─────────────────────────── */
+
 .gw-hero {
   padding: clamp(20px, 5vw, 54px) 0 clamp(16px, 3vw, 28px);
+  perspective: 1400px;
+  perspective-origin: 30% 45%;
 }
 
 .gw-hero-eyebrow {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 12px;
   letter-spacing: 0.1em;
-  color: rgba(242, 241, 238, 0.5);
-  animation: gw-riseIn 0.6s ease backwards;
+  color: var(--text-faint);
+  animation: gw-riseIn var(--t-enter) var(--ease) backwards;
   animation-delay: 0.05s;
 }
 
+/* The headline is the only element that leans into the 3D space. Letters carry their
+   own --z, so tilting the block moves them at different rates — real parallax rather
+   than a drawn-on shadow. */
 .gw-h1 {
   margin: 10px 0 0;
-  font-size: clamp(46px, 11vw, 132px);
+  font-family: var(--display);
+  font-size: var(--fs-hero);
   line-height: 0.9;
   letter-spacing: -0.045em;
   text-transform: uppercase;
@@ -101,43 +117,78 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0 clamp(14px, 2.4vw, 28px);
+  transform-style: preserve-3d;
+  transition: transform var(--t-base) var(--ease);
 }
 
 .gw-h1-word {
   display: flex;
-}
-
-.gw-h1-word--gradient {
-  background: linear-gradient(90deg, #22e0dd, #ff5cf0);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  transform-style: preserve-3d;
 }
 
 .gw-letter-drop {
   display: inline-block;
-  animation: gw-drop 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  transform-style: preserve-3d;
+  animation: gw-drop 0.55s var(--ease) backwards;
 }
 
 .gw-letter {
   display: inline-block;
-  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-
-  &:hover {
-    transform: translateY(-12px);
-  }
+  transform: translateZ(var(--z, 0px));
+  transition: transform var(--t-base) var(--ease);
 }
 
+/* FATHAN — carved: a short extrusion in progressively darker neutrals, lit from above,
+   the same light direction as every rim-light in the elevation scale. */
+.gw-h1-word--solid .gw-letter {
+  color: #f4f3f0;
+  text-shadow:
+    0 0.018em 0 #b4b3ae,
+    0 0.036em 0 #8d8c87,
+    0 0.054em 0 #6a6964,
+    0 0.072em 0 #4b4a46,
+    0 0.095em 0.05em rgba(0, 0, 0, 0.6),
+    0 0.16em 0.16em rgba(0, 0, 0, 0.45);
+}
+
+/* NASRULLAH — gradient text cannot take text-shadow: the shadow shows through the
+   transparent glyph. drop-shadow() follows the glyph alpha instead, and has to sit on
+   each letter — a filter on the word would flatten the 3D space its letters live in.
+   Each letter also carries the gradient itself, because background-clip:text does not
+   paint through descendants that have their own transform. GravityLanding.jsx re-aligns
+   each letter's background-position so the sweep still reads as one continuous word. */
+.gw-h1-word--gradient .gw-letter {
+  background-image: linear-gradient(90deg, var(--cyan), var(--magenta));
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter:
+    drop-shadow(0 0.045em 0.03em rgba(0, 0, 0, 0.6))
+    drop-shadow(0 0.13em 0.16em rgba(0, 0, 0, 0.5));
+}
+
+.gw-letter:hover {
+  transform: translateZ(calc(var(--z, 0px) + 26px)) translateY(-10px);
+}
+
+/* Body copy stays flat and maximally readable — it is the best-contrast text on the
+   page. It gets depth from sitting on a shallower parallax plane, not from ornament. */
 .gw-sub {
   margin: 18px 0 0;
   max-width: 52ch;
   font-size: clamp(15px, 2vw, 19px);
   line-height: 1.55;
-  color: rgba(242, 241, 238, 0.7);
+  color: var(--text-muted);
   text-wrap: pretty;
-  animation: gw-riseIn 0.7s ease backwards;
+  transition: transform var(--t-base) var(--ease);
+  animation: gw-riseIn 0.7s var(--ease) backwards;
   animation-delay: 0.9s;
 }
+
+/* ─────────────────────────── game ─────────────────────────── */
 
 .gw-game {
   flex: 1;
@@ -153,9 +204,9 @@
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 10px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11.5px;
-  color: rgba(242, 241, 238, 0.45);
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  color: var(--text-muted);
 }
 
 .gw-game-bar-right {
@@ -179,32 +230,35 @@
 
 .gw-score {
   padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #22e0dd;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  box-shadow: var(--e1);
+  color: var(--cyan);
 }
 
+/* The field is the one recessed surface on the page — it reads as a well you look
+   down into, which is what the mesh inside it is doing. */
 .gw-field {
   position: relative;
   flex: 1;
-  min-height: clamp(280px, 42vh, 420px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.025);
+  min-height: clamp(320px, 46vh, 460px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface-0);
+  box-shadow: var(--e0);
   overflow: hidden;
   touch-action: none;
   cursor: crosshair;
 }
 
-.gw-field-grid {
+.gw-field-canvas {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(circle at 50% 50%, #000 30%, transparent 88%);
 }
 
 .gw-node {
@@ -218,11 +272,12 @@
   border: none;
   padding: 8px;
   cursor: pointer;
-  color: #f2f1ee;
+  color: var(--text);
   font-family: inherit;
+  transition: color var(--t-fast) var(--ease);
 
   &:hover {
-    color: #22e0dd;
+    color: var(--cyan);
   }
 }
 
@@ -236,7 +291,7 @@
   background: radial-gradient(circle at 50% 50%, #05050a 42%, rgba(34, 224, 221, 0.18) 82%, rgba(34, 224, 221, 0) 100%);
   animation: gw-wellPulse 3.4s ease-in-out infinite;
   font-size: 19px;
-  color: rgba(242, 241, 238, 0.55);
+  color: var(--text-faint);
 }
 
 .gw-node-ring-dashed {
@@ -259,16 +314,18 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11.5px;
+  font-family: var(--mono);
+  font-size: var(--fs-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 .gw-node-check {
-  color: #22e0dd;
+  color: var(--cyan);
 }
+
+/* ─────────────────────────── ship ─────────────────────────── */
 
 .gw-orb {
   --thrust: 0;
@@ -280,7 +337,8 @@
   margin: -17px 0 0 -17px;
   pointer-events: none;
   will-change: transform;
-  filter: drop-shadow(0 0 10px rgba(34, 224, 221, 0.55))
+  filter:
+    drop-shadow(0 0 10px rgba(34, 224, 221, 0.55))
     drop-shadow(0 0 calc(14px + var(--thrust) * 22px) rgba(255, 92, 240, calc(0.2 + var(--thrust) * 0.4)));
 }
 
@@ -330,22 +388,7 @@
   }
 }
 
-@keyframes gw-flameFlicker {
-  from {
-    opacity: 0.55;
-    transform: translateX(-50%) scaleY(0.78);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) scaleY(1.15);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .gw-ship-flame::after {
-    animation: none;
-  }
-}
+/* ─────────────────────────── dialog ─────────────────────────── */
 
 .gw-overlay {
   position: fixed;
@@ -356,50 +399,90 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  animation: gw-fadeIn var(--t-base) var(--ease);
 }
 
 .gw-panel {
+  position: relative;
   width: 100%;
   max-width: 900px;
   max-height: 88vh;
   overflow-y: auto;
-  background: #0c0c11;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 24px 24px 0 0;
-  padding: clamp(22px, 4vw, 40px);
-  animation: gw-panelUp 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overscroll-behavior: contain;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  box-shadow: var(--e3);
+  padding: 0 clamp(22px, 4vw, 40px) clamp(22px, 4vw, 40px);
+  animation: gw-panelUp var(--t-enter) var(--ease);
 }
 
+/* On a tall desktop the sheet left half the screen as dead blurred space. */
+@media (min-width: 1024px) {
+  .gw-overlay {
+    align-items: center;
+    padding: 24px;
+  }
+
+  .gw-panel {
+    max-height: 82vh;
+    border-radius: var(--r-lg);
+    animation: gw-panelIn var(--t-enter) var(--ease);
+  }
+}
+
+/* Sticky so the title never scrolls away from a long panel on a phone. */
 .gw-panel-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 22px;
+  padding: clamp(22px, 4vw, 40px) 0 16px;
+  margin-bottom: 6px;
+  background: linear-gradient(180deg, var(--surface-1) 76%, rgba(16, 16, 23, 0));
 }
 
 .gw-panel-title {
   margin: 0;
-  font-size: clamp(24px, 4vw, 38px);
+  font-family: var(--display);
+  font-size: var(--fs-h1);
   letter-spacing: -0.03em;
 }
 
 .gw-panel-close {
   width: 38px;
   height: 38px;
+  flex: none;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: none;
-  color: #f2f1ee;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  box-shadow: var(--e1);
+  color: var(--text);
   font-size: 16px;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    transform var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
 
   &:hover {
-    background: #f2f1ee;
-    color: #08080b;
+    transform: translateY(-1px);
+    box-shadow: var(--e2);
+    background: var(--text);
+    color: var(--ground);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: var(--e0);
   }
 }
+
+/* ─────────────────────────── panel content ─────────────────────────── */
 
 .gw-work-row {
   display: grid;
@@ -407,24 +490,29 @@
   gap: 16px;
   align-items: center;
   padding: 14px 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 12px;
-  transition: background 0.25s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-top: 1px solid var(--line-subtle);
+  border-radius: var(--r-md);
+  transition:
+    background var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--surface-2);
+    box-shadow: var(--e1);
     transform: translateX(5px);
-    color: #f2f1ee;
+    color: var(--text);
   }
 }
 
 .gw-work-thumb {
   width: 58px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   overflow: hidden;
   flex: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--line);
+  box-shadow: var(--e0);
   background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.07) 0 6px, transparent 6px 12px);
   display: block;
 
@@ -442,16 +530,17 @@
 
 .gw-work-title {
   display: block;
-  font-size: 17px;
+  font-family: var(--display);
+  font-size: var(--fs-h2);
   font-weight: 500;
 }
 
 .gw-work-stack {
   display: block;
   margin-top: 3px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 11px;
-  color: rgba(242, 241, 238, 0.45);
+  color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -459,7 +548,7 @@
 
 .gw-work-arrow {
   font-size: 17px;
-  color: rgba(242, 241, 238, 0.5);
+  color: var(--text-faint);
 }
 
 .gw-career {
@@ -475,26 +564,29 @@
 }
 
 .gw-career-tag {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11.5px;
-  color: rgba(242, 241, 238, 0.45);
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  color: var(--text-faint);
   padding-top: 4px;
   white-space: nowrap;
 
   &--now {
-    color: #22e0dd;
+    color: var(--cyan);
   }
 }
 
 .gw-career-title {
-  font-size: 18px;
+  font-family: var(--display);
+  font-size: var(--fs-h2);
   font-weight: 500;
 }
 
 .gw-career-desc {
   margin: 5px 0 0;
-  color: rgba(242, 241, 238, 0.62);
+  font-size: var(--fs-body);
+  color: var(--text-muted);
   line-height: 1.55;
+  text-wrap: pretty;
 }
 
 .gw-about {
@@ -505,9 +597,9 @@
 
 .gw-about-lead {
   margin: 0;
-  font-size: 17px;
+  font-size: 16.5px;
   line-height: 1.6;
-  color: rgba(242, 241, 238, 0.7);
+  color: var(--text-muted);
   text-wrap: pretty;
 }
 
@@ -519,47 +611,50 @@
 
 .gw-about-card {
   padding: 18px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.035);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  box-shadow: var(--e1);
 }
 
 .gw-about-card-tag {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 11px;
-  color: #22e0dd;
+  color: var(--cyan);
 }
 
 .gw-about-card-body {
   margin-top: 7px;
+  font-size: var(--fs-body);
   line-height: 1.5;
 }
 
 .gw-about-stack {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 12px;
   line-height: 2;
-  color: rgba(242, 241, 238, 0.5);
+  color: var(--text-faint);
 }
 
 .gw-contact-lead {
   margin: 0 0 18px;
-  font-size: 17px;
-  color: rgba(242, 241, 238, 0.7);
+  font-size: 16.5px;
+  color: var(--text-muted);
 }
 
 .gw-contact-email {
   display: inline-block;
+  font-family: var(--display);
   font-size: clamp(20px, 4.4vw, 40px);
   font-weight: 700;
   letter-spacing: -0.03em;
   word-break: break-word;
   line-height: 1.1;
-  transition: opacity 0.2s ease;
+  transition: transform var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
 
   &:hover {
-    opacity: 0.7;
-    color: #f2f1ee;
+    transform: translateY(-1px);
+    color: var(--cyan);
   }
 }
 
@@ -572,17 +667,32 @@
 
 .gw-contact-btn {
   padding: 11px 18px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  font-family: 'JetBrains Mono', monospace;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  box-shadow: var(--e1);
+  font-family: var(--mono);
   font-size: 12.5px;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    transform var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
 
   &:hover {
-    background: #f2f1ee;
-    color: #08080b;
+    transform: translateY(-1px);
+    box-shadow: var(--e2);
+    background: var(--text);
+    color: var(--ground);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: var(--e0);
   }
 }
+
+/* ─────────────────────────── keyframes ─────────────────────────── */
 
 @keyframes gw-drop {
   from {
@@ -617,10 +727,30 @@
   }
 }
 
+@keyframes gw-fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes gw-panelUp {
   from {
     opacity: 0;
     transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes gw-panelIn {
+  from {
+    opacity: 0;
+    transform: scale(0.965);
   }
   to {
     opacity: 1;
@@ -641,5 +771,16 @@
   }
   50% {
     box-shadow: inset 0 0 30px 10px rgba(0, 0, 0, 0.95), 0 0 34px rgba(34, 224, 221, 0.35);
+  }
+}
+
+@keyframes gw-flameFlicker {
+  from {
+    opacity: 0.55;
+    transform: translateX(-50%) scaleY(0.78);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(1.15);
   }
 }
