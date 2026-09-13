@@ -3,9 +3,16 @@
   min-height: 100vh;
 }
 
-/* The ambient glow is all that sits behind the page now. The particle mesh used to
-   cover the whole viewport and ran straight through the headline and the hint line;
-   it lives inside the play field instead, where it means something. */
+.gw-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  display: block;
+}
+
 .gw-glow {
   position: fixed;
   inset: 0;
@@ -89,9 +96,28 @@
 /* ─────────────────────────── hero ─────────────────────────── */
 
 .gw-hero {
+  position: relative;
   padding: clamp(20px, 5vw, 54px) 0 clamp(16px, 3vw, 28px);
   perspective: 1400px;
   perspective-origin: 30% 45%;
+
+  /* The page's particle wave runs behind the copy. A soft scrim keeps the headline and
+     the subtitle off it without walling them into a visible box. */
+  &::before {
+    content: '';
+    position: absolute;
+    /* -22px matches .gw-main's side padding: the scrim reaches the gutter but never
+       past it, so it cannot widen the page. Percentages here overflowed on a phone. */
+    inset: -4% -22px -2%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      62% 68% at 28% 52%,
+      rgba(8, 8, 11, 0.86),
+      rgba(8, 8, 11, 0.55) 52%,
+      rgba(8, 8, 11, 0) 80%
+    );
+  }
 }
 
 .gw-hero-eyebrow {
@@ -198,6 +224,8 @@
 }
 
 .gw-game-bar {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -207,6 +235,15 @@
   font-family: var(--mono);
   font-size: var(--fs-label);
   color: var(--text-muted);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -8px -16px;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(8, 8, 11, 0.9), rgba(8, 8, 11, 0.72) 62%, rgba(8, 8, 11, 0) 100%);
+  }
 }
 
 .gw-game-bar-right {
@@ -237,28 +274,30 @@
   color: var(--cyan);
 }
 
-/* The field is the one recessed surface on the page — it reads as a well you look
-   down into, which is what the mesh inside it is doing. */
+/* The field is the one recessed surface on the page. */
 .gw-field {
   position: relative;
   flex: 1;
   min-height: clamp(320px, 46vh, 460px);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  background: var(--surface-0);
+  /* translucent so the page's particle wave still reads through the field */
+  background: rgba(226, 232, 240, 0.025);
   box-shadow: var(--e0);
   overflow: hidden;
   touch-action: none;
   cursor: crosshair;
 }
 
-.gw-field-canvas {
+.gw-field-grid {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
   pointer-events: none;
+  background-image:
+    linear-gradient(var(--line-subtle) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-subtle) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at 50% 50%, #000 30%, transparent 88%);
 }
 
 .gw-node {
