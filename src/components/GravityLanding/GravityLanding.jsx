@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 import logo from '../../assets/images/fathan-logo.png';
@@ -6,10 +6,29 @@ import data from '../../utils/dummy';
 
 import './styles.scss';
 
-const FATHAN = ['F', 'a', 't', 'h', 'a', 'n'];
-const FATHAN_DELAYS = [0.1, 0.16, 0.22, 0.28, 0.34, 0.4];
-const NASRULLAH = ['N', 'a', 's', 'r', 'u', 'l', 'l', 'a', 'h'];
-const NASRULLAH_DELAYS = [0.46, 0.51, 0.56, 0.61, 0.66, 0.71, 0.76, 0.81, 0.86];
+// Each letter carries its own depth, so tilting the headline moves them at different
+// rates. The two words sit on separate planes: FATHAN is carved into the surface,
+// NASRULLAH floats above it.
+const FATHAN = [
+  { ch: 'F', delay: 0.1, z: 0 },
+  { ch: 'a', delay: 0.16, z: 7 },
+  { ch: 't', delay: 0.22, z: 13 },
+  { ch: 'h', delay: 0.28, z: 13 },
+  { ch: 'a', delay: 0.34, z: 7 },
+  { ch: 'n', delay: 0.4, z: 0 }
+];
+
+const NASRULLAH = [
+  { ch: 'N', delay: 0.46, z: 18 },
+  { ch: 'a', delay: 0.51, z: 24 },
+  { ch: 's', delay: 0.56, z: 28 },
+  { ch: 'r', delay: 0.61, z: 30 },
+  { ch: 'u', delay: 0.66, z: 30 },
+  { ch: 'l', delay: 0.71, z: 28 },
+  { ch: 'l', delay: 0.76, z: 24 },
+  { ch: 'a', delay: 0.81, z: 18 },
+  { ch: 'h', delay: 0.86, z: 12 }
+];
 
 const NODE_DEFS = [
   { id: 'work', label: 'Projects', glyph: '◆', left: '22%', top: '30%' },
@@ -21,6 +40,23 @@ const NODE_DEFS = [
 const TITLES = { work: 'Projects', career: 'Career', about: 'How I work', contact: 'Contact' };
 
 const EMAIL = 'fathannasrullah0@gmail.com';
+
+// Physics is written against a 60fps step and then scaled by real elapsed time, so a
+// 120Hz display no longer flies the ship at double speed.
+const REF_FPS = 60;
+const ACCEL = 0.65;
+const DAMPING = 0.88;
+const TURN = 0.22;
+
+// Gravity radii come from the well circle. They used to come from the whole button,
+// whose width includes the text label — "How I work" is wide enough that on a phone
+// the pull radius covered half the field and the ship was captured on load.
+const PULL_R = 2.6;
+const CAPTURE_R = 0.55;
+
+const FOV = 50;
+const GRID_SPACING = 26;
+const WELL_DEPTH = 115;
 
 function ShipSvg() {
   // useId() emits colons, which are unsafe inside an SVG url(#...) reference
@@ -47,13 +83,24 @@ function ShipSvg() {
 export default function GravityLanding() {
   const [panel, setPanel] = useState(null);
   const [visited, setVisited] = useState([]);
-  const [hint, setHint] = useState('Loading…');
+  const [hint, setHint] = useState('arrows / wasd or drag — fly into a hole to open it');
+
+  const titleId = `gw-dialog-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+
+  const heroRef = useRef(null);
+  const h1Ref = useRef(null);
+  const subRef = useRef(null);
+  const gradWordRef = useRef(null);
 
   const fieldRef = useRef(null);
   const orbRef = useRef(null);
   const shipRef = useRef(null);
   const glRef = useRef(null);
   const nodeRefs = useRef({});
+  const wellRefs = useRef({});
+
+  const panelElRef = useRef(null);
+  const lastFocused = useRef(null);
 
   const orb = useRef({ x: 60, y: 60, vx: 0, vy: 0 });
   const heading = useRef(0);
@@ -62,30 +109,78 @@ export default function GravityLanding() {
   const falling = useRef(false);
   const cooldown = useRef(0);
   const panelRef = useRef(null);
+  // Nothing pulls until the player actually takes control. Tuning radii alone was not
+  // enough: the wells are placed by percentage, so on a short field they crowd the
+  // spawn point and the ship was captured before anyone touched it.
+  const engaged = useRef(false);
+
+  // Field geometry, measured on mount and on resize instead of every animation frame.
+  // The old loop called getBoundingClientRect five times per frame — 300 forced layouts
+  // a second — which was the main source of jank.
+  const layout = useRef({ w: 0, h: 0, wells: [] });
 
   useEffect(() => {
     panelRef.current = panel;
   }, [panel]);
 
-  const localPoint = (e) => {
-    const b = fieldRef.current.getBoundingClientRect();
-    return { x: e.clientX - b.left, y: e.clientY - b.top };
-  };
+  const measure = useCallback(() => {
+    const field = fieldRef.current;
+    if (!field) return;
+    const box = field.getBoundingClientRect();
+    const wells = NODE_DEFS.map((n) => {
+      const el = wellRefs.current[n.id];
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return {
+        id: n.id,
+        cx: b.left - box.left + b.width / 2,
+        cy: b.top - box.top + b.height / 2,
+        r: b.width / 2
+      };
+    }).filter(Boolean);
+    layout.current = { w: box.width, h: box.height, wells };
+  }, []);
 
-  const openPanel = (id) => {
+  const openPanel = useCallback((id) => {
     cooldown.current = Date.now() + 1200;
     setVisited((v) => (v.includes(id) ? v : v.concat(id)));
     setPanel(id);
-  };
+  }, []);
 
-  const closePanel = () => {
+  // The four wells are positioned by percentage, so the roomiest corner of the field
+  // differs by viewport. Pick whichever candidate sits furthest from all of them.
+  const spawnPoint = useCallback(() => {
+    const { w, h, wells } = layout.current;
+    const candidates = [
+      [w * 0.5, h * 0.86],
+      [w * 0.5, h * 0.5],
+      [w * 0.08, h * 0.5],
+      [w * 0.95, h * 0.94],
+      [w * 0.06, h * 0.06]
+    ];
+    let best = candidates[0];
+    let bestD = -1;
+    candidates.forEach(([x, y]) => {
+      let nearest = Infinity;
+      wells.forEach((wl) => {
+        nearest = Math.min(nearest, Math.hypot(wl.cx - x, wl.cy - y) - wl.r);
+      });
+      if (nearest > bestD) {
+        bestD = nearest;
+        best = [x, y];
+      }
+    });
+    return best;
+  }, []);
+
+  const closePanel = useCallback(() => {
     cooldown.current = Date.now() + 1200;
     falling.current = false;
-    const field = fieldRef.current;
-    const box = field && field.getBoundingClientRect();
-    if (box) {
-      orb.current.x = box.width * 0.5;
-      orb.current.y = box.height * 0.92;
+    const { w, h } = layout.current;
+    if (w && h) {
+      const [sx, sy] = spawnPoint();
+      orb.current.x = sx;
+      orb.current.y = sy;
       orb.current.vx = 0;
       orb.current.vy = 0;
     }
@@ -96,25 +191,114 @@ export default function GravityLanding() {
       orbEl.style.setProperty('--thrust', '0');
     }
     setPanel(null);
-  };
+  }, [spawnPoint]);
 
-  const fallIn = (id, cx, cy) => {
-    const orbEl = orbRef.current;
-    falling.current = true;
-    drag.current = null;
-    orb.current.x = cx;
-    orb.current.y = cy;
-    orb.current.vx = 0;
-    orb.current.vy = 0;
-    orbEl.style.transition = 'transform .42s cubic-bezier(.5,0,.75,0), opacity .42s ease';
-    orbEl.style.transform = `translate(${cx}px,${cy}px) rotate(540deg) scale(.05)`;
-    orbEl.style.opacity = '0';
-    setTimeout(() => openPanel(id), 360);
-  };
+  const fallIn = useCallback(
+    (id, cx, cy) => {
+      const orbEl = orbRef.current;
+      falling.current = true;
+      drag.current = null;
+      orb.current.x = cx;
+      orb.current.y = cy;
+      orb.current.vx = 0;
+      orb.current.vy = 0;
+      orbEl.style.transition = 'transform .42s cubic-bezier(.5,0,.75,0), opacity .42s ease';
+      orbEl.style.transform = `translate(${cx}px,${cy}px) rotate(540deg) scale(.05)`;
+      orbEl.style.opacity = '0';
+      setTimeout(() => openPanel(id), 360);
+    },
+    [openPanel]
+  );
+
+  /* ───────────────────────── hero: 3D headline ───────────────────────── */
+
+  useEffect(() => {
+    const word = gradWordRef.current;
+
+    // background-clip:text does not paint through descendants that carry their own
+    // transform, so each letter owns a copy of the gradient. Re-align every copy against
+    // the whole word so the cyan→magenta sweep still reads as one continuous run.
+    // offsetLeft is layout-based, so the entrance animation's transforms don't skew it.
+    // Offsets are accumulated from the letters' own widths rather than read from
+    // offsetLeft: transform-style:preserve-3d re-parents offsetParent, and the entrance
+    // animation skews getBoundingClientRect. Widths are immune to both.
+    const stitch = () => {
+      if (!word) return;
+      const drops = Array.prototype.slice.call(word.children);
+      const widths = drops.map((d) => d.offsetWidth);
+      const total = widths.reduce((a, b) => a + b, 0);
+      if (!total) return;
+      let acc = 0;
+      drops.forEach((drop, i) => {
+        const letter = drop.firstChild;
+        if (letter) {
+          letter.style.backgroundSize = `${total}px 100%`;
+          letter.style.backgroundPosition = `${-acc}px 0`;
+        }
+        acc += widths[i];
+      });
+    };
+
+    stitch();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(stitch);
+    const settle = setTimeout(stitch, 1600);
+    addEventListener('resize', stitch);
+
+    let tilt;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduced) {
+      const hero = heroRef.current;
+      const h1 = h1Ref.current;
+      const sub = subRef.current;
+      const rest = 'rotateY(-4deg) rotateX(3deg)';
+      if (h1) h1.style.transform = rest;
+
+      const onMove = (e) => {
+        const b = hero.getBoundingClientRect();
+        const x = (e.clientX - b.left) / b.width - 0.5;
+        const y = (e.clientY - b.top) / b.height - 0.5;
+        if (h1) h1.style.transform = `rotateY(${(x * 16).toFixed(2)}deg) rotateX(${(-y * 10).toFixed(2)}deg)`;
+        // The subtitle stays flat and legible; it sits on a shallower plane, so it
+        // shifts far less than the headline. Depth through motion, not ornament.
+        if (sub) sub.style.transform = `translate3d(${(x * -10).toFixed(1)}px, ${(y * -5).toFixed(1)}px, 0)`;
+      };
+      const onLeave = () => {
+        if (h1) h1.style.transform = rest;
+        if (sub) sub.style.transform = '';
+      };
+
+      hero.addEventListener('pointermove', onMove);
+      hero.addEventListener('pointerleave', onLeave);
+      tilt = () => {
+        hero.removeEventListener('pointermove', onMove);
+        hero.removeEventListener('pointerleave', onLeave);
+      };
+    }
+
+    return () => {
+      clearTimeout(settle);
+      removeEventListener('resize', stitch);
+      if (tilt) tilt();
+    };
+  }, []);
+
+  /* ───────────────────────── game loop ───────────────────────── */
 
   useEffect(() => {
     const touch = matchMedia('(hover: none)').matches;
     setHint(touch ? 'drag the ship into a hole — or just tap one' : 'arrows / wasd or drag — fly into a hole to open it');
+
+    const field = fieldRef.current;
+    const orbEl = orbRef.current;
+    const shipEl = shipRef.current;
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(field);
+
+    const [sx, sy] = spawnPoint();
+    orb.current.x = sx;
+    orb.current.y = sy;
 
     const onKeyDown = (e) => {
       if (e.key === 'Escape') {
@@ -123,6 +307,9 @@ export default function GravityLanding() {
         return;
       }
       keys.current[e.key.toLowerCase()] = true;
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(e.key.toLowerCase())) {
+        engaged.current = true;
+      }
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) e.preventDefault();
     };
     const onKeyUp = (e) => {
@@ -131,47 +318,50 @@ export default function GravityLanding() {
     addEventListener('keydown', onKeyDown, { passive: false });
     addEventListener('keyup', onKeyUp);
 
-    const field = fieldRef.current;
-    const orbEl = orbRef.current;
-    const shipEl = shipRef.current;
-    const r0 = field.getBoundingClientRect();
-    orb.current.x = r0.width * 0.5;
-    orb.current.y = r0.height * 0.5;
+    // Let the layout settle before gravity can grab anything.
+    cooldown.current = Date.now() + 600;
 
     let raf;
-    const loop = () => {
+    let prev = performance.now();
+    const loop = (now) => {
       raf = requestAnimationFrame(loop);
-      const box = field.getBoundingClientRect();
+      const dt = Math.min((now - prev) / 1000, 1 / 20);
+      prev = now;
+      const step = dt * REF_FPS;
+      const { w, h, wells } = layout.current;
+      if (!w || !h) return;
+
       const k = keys.current;
-      const a = 0.65;
       let thrusting = false;
       if (k.arrowleft || k.a) {
-        orb.current.vx -= a;
+        orb.current.vx -= ACCEL * step;
         thrusting = true;
       }
       if (k.arrowright || k.d) {
-        orb.current.vx += a;
+        orb.current.vx += ACCEL * step;
         thrusting = true;
       }
       if (k.arrowup || k.w) {
-        orb.current.vy -= a;
+        orb.current.vy -= ACCEL * step;
         thrusting = true;
       }
       if (k.arrowdown || k.s) {
-        orb.current.vy += a;
+        orb.current.vy += ACCEL * step;
         thrusting = true;
       }
       if (drag.current) {
         const gx = drag.current.x - orb.current.x;
         const gy = drag.current.y - orb.current.y;
-        orb.current.vx += gx * 0.14;
-        orb.current.vy += gy * 0.14;
+        orb.current.vx += gx * 0.14 * step;
+        orb.current.vy += gy * 0.14 * step;
         if (Math.hypot(gx, gy) > 6) thrusting = true;
       }
-      orb.current.vx *= 0.88;
-      orb.current.vy *= 0.88;
-      orb.current.x = Math.max(16, Math.min(box.width - 16, orb.current.x + orb.current.vx));
-      orb.current.y = Math.max(16, Math.min(box.height - 16, orb.current.y + orb.current.vy));
+
+      const decay = Math.pow(DAMPING, step);
+      orb.current.vx *= decay;
+      orb.current.vy *= decay;
+      orb.current.x = Math.max(16, Math.min(w - 16, orb.current.x + orb.current.vx * step));
+      orb.current.y = Math.max(16, Math.min(h - 16, orb.current.y + orb.current.vy * step));
 
       const speed = Math.hypot(orb.current.vx, orb.current.vy);
       if (speed > 0.4) {
@@ -180,7 +370,7 @@ export default function GravityLanding() {
         let diff = target - heading.current;
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
-        heading.current += diff * 0.22;
+        heading.current += diff * (1 - Math.pow(1 - TURN, step));
       }
 
       if (!falling.current) {
@@ -190,143 +380,252 @@ export default function GravityLanding() {
         orbEl.style.setProperty('--thrust', thrust.toFixed(3));
       }
 
-      if (!panelRef.current && !falling.current && Date.now() > cooldown.current) {
-        NODE_DEFS.forEach((n) => {
-          const el = nodeRefs.current[n.id];
-          if (!el) return;
-          const b = el.getBoundingClientRect();
-          const r = b.width * 0.42;
-          const cx = b.left - box.left + b.width / 2;
-          const cy = b.top - box.top + b.height / 2 - b.height * 0.16;
-          const dx = cx - orb.current.x;
-          const dy = cy - orb.current.y;
+      if (engaged.current && !panelRef.current && !falling.current && Date.now() > cooldown.current) {
+        wells.forEach((wl) => {
+          const dx = wl.cx - orb.current.x;
+          const dy = wl.cy - orb.current.y;
           const d = Math.hypot(dx, dy) || 1;
-          if (d < r * 3) {
-            const pull = (1 - d / (r * 3)) * 0.5;
+          const reach = wl.r * PULL_R;
+          const el = nodeRefs.current[wl.id];
+          if (d < reach) {
+            const pull = (1 - d / reach) * 0.5 * step;
             orb.current.vx += (dx / d) * pull;
             orb.current.vy += (dy / d) * pull;
-            el.style.transform = `translate(-50%,-50%) scale(${1 + (1 - d / (r * 3)) * 0.12})`;
-          } else {
+            if (el) el.style.transform = `translate(-50%,-50%) scale(${1 + (1 - d / reach) * 0.12})`;
+          } else if (el) {
             el.style.transform = 'translate(-50%,-50%)';
           }
-          if (d < r * 0.7) fallIn(n.id, cx, cy);
+          if (d < wl.r * CAPTURE_R) fallIn(wl.id, wl.cx, wl.cy);
         });
       }
     };
-    loop();
+    raf = requestAnimationFrame(loop);
 
     return () => {
       removeEventListener('keydown', onKeyDown);
       removeEventListener('keyup', onKeyUp);
       cancelAnimationFrame(raf);
+      ro.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [measure, closePanel, fallIn, spawnPoint]);
+
+  /* ───────────────────────── the field as a 3D surface ───────────────────────── */
 
   useEffect(() => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const canvas = glRef.current;
-    if (!canvas) return;
+    const field = fieldRef.current;
+    if (!canvas || !field) return;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 100);
-    camera.position.set(0, 4.2, 11);
-    camera.lookAt(0, -0.4, 0);
 
-    const COLS = 100;
-    const ROWS = 58;
-    const SP = 0.28;
-    const pos = new Float32Array(COLS * ROWS * 3);
-    const col = new Float32Array(COLS * ROWS * 3);
-    const base = [];
+    // The camera looks straight down at the plane, so world x/z map 1:1 onto field
+    // pixels and the DOM wells stay registered with the mesh. Depth reads because a
+    // dip pulls its points away from the camera: they converge inward and shrink.
+    const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 6000);
+    camera.up.set(0, 0, -1);
+
     const cyan = new THREE.Color('#22e0dd');
     const mag = new THREE.Color('#ff5cf0');
     const tmp = new THREE.Color();
-    let i = 0;
-    for (let x = 0; x < COLS; x++) {
-      for (let z = 0; z < ROWS; z++) {
-        const px = (x - COLS / 2) * SP;
-        const pz = (z - ROWS / 2) * SP;
-        base.push(px, pz);
-        pos[i * 3] = px;
-        pos[i * 3 + 2] = pz;
-        tmp.copy(cyan).lerp(mag, (x / COLS) * 0.85 + Math.random() * 0.15);
-        const fade = 1 - Math.min(1, Math.hypot(px, pz) / 12);
-        col[i * 3] = tmp.r * fade;
-        col[i * 3 + 1] = tmp.g * fade;
-        col[i * 3 + 2] = tmp.b * fade;
-        i++;
-      }
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const mat = new THREE.PointsMaterial({
-      size: 0.045,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0,
-      sizeAttenuation: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending
-    });
-    const points = new THREE.Points(geo, mat);
-    scene.add(points);
 
-    const mouse = { x: 0, z: 0, on: 0 };
-    const onMove = (e) => {
-      mouse.x = ((e.clientX / innerWidth) * 2 - 1) * 8;
-      mouse.z = ((e.clientY / innerHeight) * 2 - 1) * 5 + 1;
-      mouse.on = 1;
+    let geo = null;
+    let mesh = null;
+    let base = [];
+    let colAttr = null;
+    let baseCol = null;
+
+    // Loose points read as ambiguous specks: from a top-down camera a point that sinks
+    // just drifts toward the middle of the screen. A connected line grid shows the
+    // surface itself, so a depression reads as a funnel the way it should.
+    const build = (w, h) => {
+      if (mesh) {
+        scene.remove(mesh);
+        geo.dispose();
+        mesh.material.dispose();
+      }
+      const cols = Math.max(6, Math.round(w / GRID_SPACING));
+      const rows = Math.max(6, Math.round(h / GRID_SPACING));
+      const count = cols * rows;
+      const pos = new Float32Array(count * 3);
+      const col = new Float32Array(count * 3);
+      base = new Float32Array(count * 2);
+
+      const at = (cx, cz) => cx * rows + cz;
+      for (let cx = 0; cx < cols; cx++) {
+        for (let cz = 0; cz < rows; cz++) {
+          const i = at(cx, cz);
+          const x = (cx / (cols - 1) - 0.5) * w;
+          const z = (cz / (rows - 1) - 0.5) * h;
+          base[i * 2] = x;
+          base[i * 2 + 1] = z;
+          pos[i * 3] = x;
+          pos[i * 3 + 2] = z;
+          tmp.copy(cyan).lerp(mag, cx / (cols - 1));
+          col[i * 3] = tmp.r;
+          col[i * 3 + 1] = tmp.g;
+          col[i * 3 + 2] = tmp.b;
+        }
+      }
+
+      const idx = [];
+      for (let cx = 0; cx < cols; cx++) {
+        for (let cz = 0; cz < rows; cz++) {
+          if (cz < rows - 1) idx.push(at(cx, cz), at(cx, cz + 1));
+          if (cx < cols - 1) idx.push(at(cx, cz), at(cx + 1, cz));
+        }
+      }
+
+      geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      baseCol = Float32Array.from(col);
+      colAttr = new THREE.BufferAttribute(col, 3);
+      geo.setAttribute('color', colAttr);
+      geo.setIndex(idx);
+      const mat = new THREE.LineBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      mesh = new THREE.LineSegments(geo, mat);
+      scene.add(mesh);
     };
-    addEventListener('pointermove', onMove, { passive: true });
+
     const resize = () => {
-      renderer.setSize(innerWidth, innerHeight, false);
-      camera.aspect = innerWidth / innerHeight;
+      const w = field.clientWidth;
+      const h = field.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      // height that makes the y=0 plane exactly fill the field
+      camera.position.set(0, h / (2 * Math.tan((FOV * Math.PI) / 360)), 0);
+      camera.lookAt(0, 0, 0);
       camera.updateProjectionMatrix();
+      build(w, h);
     };
     resize();
-    addEventListener('resize', resize);
+    const ro = new ResizeObserver(resize);
+    ro.observe(field);
 
-    const arr = geo.attributes.position.array;
     const t0 = performance.now();
     let raf;
     const loop = (now) => {
       raf = requestAnimationFrame(loop);
-      if (document.hidden) return;
+      if (document.hidden || !geo) return;
       const t = (now - t0) / 1000;
-      for (let k = 0; k < base.length / 2; k++) {
-        const px = base[k * 2];
-        const pz = base[k * 2 + 1];
-        let y = Math.sin(px * 0.42 + t * 0.72) * 0.34 + Math.cos(pz * 0.5 - t * 0.52) * 0.28;
-        const d = Math.hypot(px - mouse.x, pz - mouse.z);
-        if (d < 3.4) y += Math.cos(d * 1.5 - t * 3.2) * (1 - d / 3.4) * 0.95 * mouse.on;
-        arr[k * 3 + 1] = y;
+      const { w, h, wells } = layout.current;
+      if (!w || !h) return;
+      const arr = geo.attributes.position.array;
+      const cols = geo.attributes.position.count;
+      const cArr = colAttr.array;
+
+      const shipX = orb.current.x - w / 2;
+      const shipZ = orb.current.y - h / 2;
+
+      for (let i = 0; i < cols; i++) {
+        const bx = base[i * 2];
+        const bz = base[i * 2 + 1];
+        let y = reduced ? 0 : Math.sin(bx * 0.012 + t * 0.6) * 3 + Math.cos(bz * 0.015 - t * 0.45) * 2.5;
+        let px = bx;
+        let pz = bz;
+        let glow = 0;
+
+        for (let k = 0; k < wells.length; k++) {
+          const wl = wells[k];
+          const dx = bx - (wl.cx - w / 2);
+          const dz = bz - (wl.cy - h / 2);
+          const sigma = wl.r * 1.5;
+          const g = Math.exp(-(dx * dx + dz * dz) / (2 * sigma * sigma));
+          y -= WELL_DEPTH * g;
+          // gather the surrounding grid toward the mouth, the way a funnel does
+          px -= dx * g * 0.34;
+          pz -= dz * g * 0.34;
+          if (g > glow) glow = g;
+        }
+
+        // the ship presses its own shallow dent into the surface
+        const sdx = bx - shipX;
+        const sdz = bz - shipZ;
+        const sg = Math.exp(-(sdx * sdx + sdz * sdz) / 2200);
+        y -= 30 * sg;
+
+        arr[i * 3] = px;
+        arr[i * 3 + 1] = y;
+        arr[i * 3 + 2] = pz;
+
+        // the rim lights up as the surface bends; the throat falls away into the dark
+        const rim = Math.exp(-Math.pow(glow - 0.34, 2) / 0.035);
+        const k2 = 0.32 + rim * 1.5 + sg * 0.9 - glow * 0.22;
+        const bi = i * 3;
+        cArr[bi] = baseCol[bi] * k2;
+        cArr[bi + 1] = baseCol[bi + 1] * k2;
+        cArr[bi + 2] = baseCol[bi + 2] * k2;
       }
+
       geo.attributes.position.needsUpdate = true;
-      points.rotation.y = Math.sin(t * 0.06) * 0.12;
-      if (mat.opacity < 0.95) mat.opacity = Math.min(0.95, t / 1.4);
+      colAttr.needsUpdate = true;
+      if (mesh.material.opacity < 0.8) mesh.material.opacity = Math.min(0.8, t / 1.2);
       renderer.render(scene, camera);
     };
     raf = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(raf);
-      removeEventListener('pointermove', onMove);
-      removeEventListener('resize', resize);
+      ro.disconnect();
+      if (mesh) {
+        scene.remove(mesh);
+        mesh.material.dispose();
+      }
+      if (geo) geo.dispose();
       renderer.dispose();
-      geo.dispose();
     };
   }, []);
+
+  /* ───────────────────────── dialog focus handling ───────────────────────── */
+
+  useEffect(() => {
+    if (!panel) return undefined;
+    const el = panelElRef.current;
+    if (!el) return undefined;
+    el.focus();
+
+    const onTab = (e) => {
+      if (e.key !== 'Tab') return;
+      const focusables = el.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === el)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    el.addEventListener('keydown', onTab);
+
+    const restore = lastFocused.current;
+    return () => {
+      el.removeEventListener('keydown', onTab);
+      if (restore && document.contains(restore)) restore.focus();
+    };
+  }, [panel]);
+
+  const localPoint = (e) => {
+    const b = fieldRef.current.getBoundingClientRect();
+    return { x: e.clientX - b.left, y: e.clientY - b.top };
+  };
 
   const score = `${visited.length}/4 found`;
   const displayedHint = visited.length === 4 ? "that's everything — now go email me" : hint;
 
   return (
     <div className="gw">
-      <canvas ref={glRef} className="gw-canvas" />
       <div className="gw-glow" />
 
       <main className="gw-main">
@@ -340,25 +639,31 @@ export default function GravityLanding() {
           </a>
         </header>
 
-        <section className="gw-hero">
+        <section className="gw-hero" ref={heroRef}>
           <div className="gw-hero-eyebrow">hey, i&apos;m</div>
-          <h1 className="gw-h1">
-            <span className="gw-h1-word">
-              {FATHAN.map((letter, idx) => (
-                <span key={idx} className="gw-letter-drop" style={{ animationDelay: `${FATHAN_DELAYS[idx]}s` }}>
-                  <span className="gw-letter">{letter}</span>
+          <h1 className="gw-h1" ref={h1Ref}>
+            <span className="gw-h1-word gw-h1-word--solid">
+              {FATHAN.map((l, idx) => (
+                <span key={idx} className="gw-letter-drop" style={{ animationDelay: `${l.delay}s` }}>
+                  <span className="gw-letter" style={{ '--z': `${l.z}px` }}>
+                    {l.ch}
+                  </span>
                 </span>
               ))}
             </span>
-            <span className="gw-h1-word gw-h1-word--gradient">
-              {NASRULLAH.map((letter, idx) => (
-                <span key={idx} className="gw-letter-drop" style={{ animationDelay: `${NASRULLAH_DELAYS[idx]}s` }}>
-                  {letter}
+            <span className="gw-h1-word gw-h1-word--gradient" ref={gradWordRef}>
+              {NASRULLAH.map((l, idx) => (
+                <span key={idx} className="gw-letter-drop" style={{ animationDelay: `${l.delay}s` }}>
+                  <span className="gw-letter" style={{ '--z': `${l.z}px` }}>
+                    {l.ch}
+                  </span>
                 </span>
               ))}
             </span>
           </h1>
-          <p className="gw-sub">{data.about.profession}</p>
+          <p className="gw-sub" ref={subRef}>
+            {data.about.profession}
+          </p>
         </section>
 
         <section className="gw-game">
@@ -380,6 +685,7 @@ export default function GravityLanding() {
             className="gw-field"
             onPointerDown={(e) => {
               if (e.target.closest('.gw-node')) return;
+              engaged.current = true;
               drag.current = localPoint(e);
               if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
             }}
@@ -390,7 +696,7 @@ export default function GravityLanding() {
               drag.current = null;
             }}
           >
-            <div className="gw-field-grid" />
+            <canvas ref={glRef} className="gw-field-canvas" />
 
             {NODE_DEFS.map((n) => (
               <button
@@ -401,9 +707,17 @@ export default function GravityLanding() {
                 }}
                 className="gw-node"
                 style={{ left: n.left, top: n.top }}
-                onClick={() => openPanel(n.id)}
+                onClick={(e) => {
+                  lastFocused.current = e.currentTarget;
+                  openPanel(n.id);
+                }}
               >
-                <span className="gw-node-well">
+                <span
+                  className="gw-node-well"
+                  ref={(el) => {
+                    wellRefs.current[n.id] = el;
+                  }}
+                >
                   <span className="gw-node-ring-dashed" />
                   <span className="gw-node-ring-pulse" />
                   {n.glyph}
@@ -426,11 +740,21 @@ export default function GravityLanding() {
       </main>
 
       {panel && (
-        <div className="gw-overlay" onClick={closePanel}>
-          <div className="gw-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="gw-overlay" role="presentation" onClick={closePanel}>
+          <div
+            className="gw-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            tabIndex={-1}
+            ref={panelElRef}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="gw-panel-head">
-              <h2 className="gw-panel-title">{TITLES[panel]}</h2>
-              <button type="button" className="gw-panel-close" onClick={closePanel}>
+              <h2 className="gw-panel-title" id={titleId}>
+                {TITLES[panel]}
+              </h2>
+              <button type="button" className="gw-panel-close" aria-label="Close" onClick={closePanel}>
                 ✕
               </button>
             </div>
@@ -439,9 +763,7 @@ export default function GravityLanding() {
               <div>
                 {data.projects.map((p) => (
                   <a key={p.title} href={p.demo} target="_blank" rel="noreferrer" className="gw-work-row">
-                    <span className="gw-work-thumb">
-                      {p.img && <img src={p.img} alt="" loading="lazy" />}
-                    </span>
+                    <span className="gw-work-thumb">{p.img && <img src={p.img} alt="" loading="lazy" />}</span>
                     <span className="gw-work-body">
                       <span className="gw-work-title">{p.title}</span>
                       <span className="gw-work-stack">{p.stack}</span>
