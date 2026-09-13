@@ -44,7 +44,10 @@
   --mono: 'JetBrains Mono', ui-monospace, monospace;
 
   /* ── type scale: replaces 12 loose font-size values ── */
-  --fs-hero: clamp(46px, 11vw, 132px);
+  /* Bound by viewport height as well as width. 11vw alone sized the headline off the
+     screen's width while it was the height that was short: on a 1366x768 laptop that
+     gave a 132px headline and a 426px hero, which is what pushed the page to scroll. */
+  --fs-hero: max(38px, min(11vw, 13vh, 132px));
   --fs-h1: clamp(24px, 4vw, 38px);
   --fs-h2: 18px;
   --fs-body: 15px;

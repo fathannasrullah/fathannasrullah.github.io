@@ -30,6 +30,7 @@
   margin: 0 auto;
   padding: 0 22px;
   min-height: 100vh;
+  min-height: 100dvh; /* vh ignores the mobile address bar; dvh shrinks with it */
   display: flex;
   flex-direction: column;
 }
@@ -41,7 +42,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 20px 0;
+  padding: clamp(11px, 2vh, 20px) 0;
 }
 
 .gw-header-brand {
@@ -97,9 +98,11 @@
 
 .gw-hero {
   position: relative;
-  padding: clamp(20px, 5vw, 54px) 0 clamp(16px, 3vw, 28px);
-  perspective: 1400px;
-  perspective-origin: 30% 45%;
+  padding: clamp(12px, 3.4vh, 54px) 0 clamp(10px, 2vh, 28px);
+  /* perspective is the eye's distance from the plane: the larger it is, the flatter the
+     result. 1400px across an ~800px headline barely foreshortened anything. */
+  perspective: 620px;
+  perspective-origin: 34% 46%;
 
   /* The page's particle wave runs behind the copy. A soft scrim keeps the headline and
      the subtitle off it without walling them into a visible box. */
@@ -145,6 +148,14 @@
   gap: 0 clamp(14px, 2.4vw, 28px);
   transform-style: preserve-3d;
   transition: transform var(--t-base) var(--ease);
+  /* The rotation is a CSS animation so the compositor owns it. JS only re-aims the
+     extrusion, throttled — see GravityLanding.jsx. */
+  animation: gw-heroFloat 7s ease-in-out infinite;
+}
+
+/* a pointer takes over from the idle drift */
+.gw-hero--tilting .gw-h1 {
+  animation: none;
 }
 
 .gw-h1-word {
@@ -203,7 +214,7 @@
 /* Body copy stays flat and maximally readable — it is the best-contrast text on the
    page. It gets depth from sitting on a shallower parallax plane, not from ornament. */
 .gw-sub {
-  margin: 18px 0 0;
+  margin: clamp(10px, 2vh, 18px) 0 0;
   max-width: 52ch;
   font-size: clamp(15px, 2vw, 19px);
   line-height: 1.55;
@@ -220,7 +231,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-bottom: 34px;
+  padding-bottom: clamp(14px, 3vh, 34px);
+  min-height: 0;
 }
 
 .gw-game-bar {
@@ -278,7 +290,7 @@
 .gw-field {
   position: relative;
   flex: 1;
-  min-height: clamp(320px, 46vh, 460px);
+  min-height: 260px;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   /* translucent so the page's particle wave still reads through the field */
@@ -320,6 +332,10 @@
   }
 }
 
+/* The mouth of the well. A perfectly round ring spinning flat says nothing about
+   orientation, so the rings became a tilted accretion disk instead and this element
+   became a throat that recedes: shadow across the top lip, a thin bounce off the
+   bottom one. */
 .gw-node-well {
   position: relative;
   width: clamp(56px, 9.5vw, 78px);
@@ -327,26 +343,90 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 50% 50%, #05050a 42%, rgba(34, 224, 221, 0.18) 82%, rgba(34, 224, 221, 0) 100%);
-  animation: gw-wellPulse 3.4s ease-in-out infinite;
   font-size: 19px;
   color: var(--text-faint);
+  transform-style: preserve-3d;
+  /* A void, not a lit sphere. An earlier pass had a soft cyan halo out to 84%, which
+     read as a planet's atmosphere — Saturn, not a black hole. The core stays pure black
+     and the only light is a thin rim right at the edge. */
+  background: radial-gradient(circle at 50% 50%, #000 62%, rgba(6, 6, 12, 0.92) 78%, rgba(34, 224, 221, 0.05) 94%, rgba(34, 224, 221, 0) 100%);
+  box-shadow:
+    inset 0 3px 10px rgba(0, 0, 0, 1),
+    inset 0 -1px 4px rgba(34, 224, 221, 0.16),
+    0 0 13px rgba(34, 224, 221, 0.14);
+}
+
+/* The old pulse animated box-shadow, which repaints every frame on all four wells.
+   This is an opacity fade on its own layer — the compositor handles it. */
+.gw-node-well::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(34, 224, 221, 0) 68%, rgba(34, 224, 221, 0.3) 77%, rgba(34, 224, 221, 0) 85%);
+  animation: gw-wellBreathe 3.4s ease-in-out infinite;
+}
+
+/* Light bent around the rim — the detail that makes it read as an astronomical body. */
+.gw-node-ring-pulse {
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(
+    from 200deg,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.5) 16%,
+    rgba(34, 224, 221, 0.45) 30%,
+    rgba(255, 255, 255, 0) 52%
+  );
+  -webkit-mask: radial-gradient(closest-side, transparent 82%, #000 86%);
+  mask: radial-gradient(closest-side, transparent 82%, #000 86%);
+  filter: blur(0.6px);
+}
+
+/* Three rings tilted out of plane, each at its own speed. Only transform animates, so
+   each one rasterises once and is composited from then on. */
+.gw-node-ring-dashed,
+.gw-disk {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg,
+    rgba(34, 224, 221, 0),
+    rgba(34, 224, 221, 0.85) 22%,
+    rgba(255, 92, 240, 0.8) 44%,
+    rgba(255, 92, 240, 0) 66%,
+    rgba(34, 224, 221, 0) 100%
+  );
+  -webkit-mask: radial-gradient(closest-side, transparent 76%, #000 80%);
+  mask: radial-gradient(closest-side, transparent 76%, #000 80%);
 }
 
 .gw-node-ring-dashed {
-  position: absolute;
-  inset: -6px;
-  border-radius: 50%;
-  border: 1px dashed rgba(34, 224, 221, 0.35);
-  animation: gw-spin 14s linear infinite;
+  inset: -26%;
+  animation: gw-diskA 5.5s linear infinite;
 }
 
-.gw-node-ring-pulse {
-  position: absolute;
-  inset: -1px;
-  border-radius: 50%;
-  border: 1px solid rgba(34, 224, 221, 0.45);
-  animation: gw-pulseRing 2.8s ease-out infinite;
+.gw-disk-b {
+  inset: -14%;
+  opacity: 0.9;
+  animation: gw-diskB 3.6s linear infinite;
+}
+
+.gw-disk-c {
+  inset: -2%;
+  opacity: 0.7;
+  animation: gw-diskC 2.4s linear infinite;
+}
+
+/* Phones drop the innermost ring: two animated layers per well instead of three. */
+@media (max-width: 640px) {
+  .gw-disk-c {
+    display: none;
+  }
 }
 
 .gw-node-label {
@@ -376,14 +456,15 @@
   margin: -17px 0 0 -17px;
   pointer-events: none;
   will-change: transform;
-  filter:
-    drop-shadow(0 0 10px rgba(34, 224, 221, 0.55))
-    drop-shadow(0 0 calc(14px + var(--thrust) * 22px) rgba(255, 92, 240, calc(0.2 + var(--thrust) * 0.4)));
+  /* A filter here would flatten the 3D space the ship banks in, so the glow moved down
+     onto the SVG leaf and this element only carries perspective. */
+  perspective: 340px;
 }
 
 .gw-ship {
   position: absolute;
   inset: 0;
+  transform-style: preserve-3d;
   will-change: transform;
 }
 
@@ -392,6 +473,23 @@
   display: block;
   width: 100%;
   height: 100%;
+  filter:
+    drop-shadow(0 0 10px rgba(34, 224, 221, 0.55))
+    drop-shadow(0 0 calc(14px + var(--thrust) * 22px) rgba(255, 92, 240, calc(0.2 + var(--thrust) * 0.4)));
+}
+
+/* Cast on the field floor. The cheapest, most direct depth cue there is. */
+.gw-ship-shadow {
+  position: absolute;
+  left: 50%;
+  top: 74%;
+  width: 22px;
+  height: 7px;
+  margin-left: -11px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  filter: blur(3px);
+  will-change: transform;
 }
 
 .gw-ship-flame {
@@ -744,15 +842,29 @@
   }
 }
 
-@keyframes gw-pulseRing {
-  0% {
-    transform: scale(1);
-    opacity: 0.55;
-  }
-  100% {
-    transform: scale(1.9);
-    opacity: 0;
-  }
+@keyframes gw-diskA {
+  from { transform: rotateX(72deg) rotate(0deg); }
+  to   { transform: rotateX(72deg) rotate(360deg); }
+}
+
+@keyframes gw-diskB {
+  from { transform: rotateX(64deg) rotateZ(28deg) rotate(360deg); }
+  to   { transform: rotateX(64deg) rotateZ(28deg) rotate(0deg); }
+}
+
+@keyframes gw-diskC {
+  from { transform: rotateX(78deg) rotateZ(-14deg) rotate(0deg); }
+  to   { transform: rotateX(78deg) rotateZ(-14deg) rotate(360deg); }
+}
+
+@keyframes gw-wellBreathe {
+  0%, 100% { opacity: 0.45; transform: scale(0.97); }
+  50%      { opacity: 1; transform: scale(1.04); }
+}
+
+@keyframes gw-heroFloat {
+  0%, 100% { transform: rotateY(-11deg) rotateX(6deg); }
+  50%      { transform: rotateY(9deg) rotateX(2deg); }
 }
 
 @keyframes gw-riseIn {
@@ -800,16 +912,6 @@
 @keyframes gw-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes gw-wellPulse {
-  0%,
-  100% {
-    box-shadow: inset 0 0 26px 6px rgba(0, 0, 0, 0.95), 0 0 18px rgba(34, 224, 221, 0.18);
-  }
-  50% {
-    box-shadow: inset 0 0 30px 10px rgba(0, 0, 0, 0.95), 0 0 34px rgba(34, 224, 221, 0.35);
   }
 }
 

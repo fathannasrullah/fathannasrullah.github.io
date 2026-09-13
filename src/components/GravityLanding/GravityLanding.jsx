@@ -11,23 +11,23 @@ import './styles.scss';
 // NASRULLAH floats above it.
 const FATHAN = [
   { ch: 'F', delay: 0.1, z: 0 },
-  { ch: 'a', delay: 0.16, z: 7 },
-  { ch: 't', delay: 0.22, z: 13 },
-  { ch: 'h', delay: 0.28, z: 13 },
-  { ch: 'a', delay: 0.34, z: 7 },
+  { ch: 'a', delay: 0.16, z: 26 },
+  { ch: 't', delay: 0.22, z: 48 },
+  { ch: 'h', delay: 0.28, z: 48 },
+  { ch: 'a', delay: 0.34, z: 26 },
   { ch: 'n', delay: 0.4, z: 0 }
 ];
 
 const NASRULLAH = [
-  { ch: 'N', delay: 0.46, z: 18 },
-  { ch: 'a', delay: 0.51, z: 24 },
-  { ch: 's', delay: 0.56, z: 28 },
-  { ch: 'r', delay: 0.61, z: 30 },
-  { ch: 'u', delay: 0.66, z: 30 },
-  { ch: 'l', delay: 0.71, z: 28 },
-  { ch: 'l', delay: 0.76, z: 24 },
-  { ch: 'a', delay: 0.81, z: 18 },
-  { ch: 'h', delay: 0.86, z: 12 }
+  { ch: 'N', delay: 0.46, z: 66 },
+  { ch: 'a', delay: 0.51, z: 84 },
+  { ch: 's', delay: 0.56, z: 98 },
+  { ch: 'r', delay: 0.61, z: 110 },
+  { ch: 'u', delay: 0.66, z: 110 },
+  { ch: 'l', delay: 0.71, z: 98 },
+  { ch: 'l', delay: 0.76, z: 84 },
+  { ch: 'a', delay: 0.81, z: 66 },
+  { ch: 'h', delay: 0.86, z: 44 }
 ];
 
 const NODE_DEFS = [
@@ -53,6 +53,11 @@ const TURN = 0.22;
 // the pull radius covered half the field and the ship was captured on load.
 const PULL_R = 2.6;
 const CAPTURE_R = 0.55;
+
+// Ship attitude. Bank comes from how fast the heading is changing, pitch from thrust —
+// both already exist in the loop, so this costs one extra transform string per frame.
+const MAX_BANK = 34;
+const MAX_PITCH = 18;
 
 function ShipSvg() {
   // useId() emits colons, which are unsafe inside an SVG url(#...) reference
@@ -91,6 +96,8 @@ export default function GravityLanding() {
   const fieldRef = useRef(null);
   const orbRef = useRef(null);
   const shipRef = useRef(null);
+  const shadowRef = useRef(null);
+  const solidWordRef = useRef(null);
   const glRef = useRef(null);
   const nodeRefs = useRef({});
   const wellRefs = useRef({});
@@ -100,6 +107,7 @@ export default function GravityLanding() {
 
   const orb = useRef({ x: 60, y: 60, vx: 0, vy: 0 });
   const heading = useRef(0);
+  const bank = useRef(0);
   const keys = useRef({});
   const drag = useRef(null);
   const falling = useRef(false);
@@ -240,41 +248,103 @@ export default function GravityLanding() {
     const settle = setTimeout(stitch, 1600);
     addEventListener('resize', stitch);
 
-    let tilt;
+    const hero = heroRef.current;
+    const h1 = h1Ref.current;
+    const sub = subRef.current;
+    const solid = solidWordRef.current;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!reduced) {
-      const hero = heroRef.current;
-      const h1 = h1Ref.current;
-      const sub = subRef.current;
-      const rest = 'rotateY(-4deg) rotateX(3deg)';
-      if (h1) h1.style.transform = rest;
 
-      const onMove = (e) => {
-        const b = hero.getBoundingClientRect();
-        const x = (e.clientX - b.left) / b.width - 0.5;
-        const y = (e.clientY - b.top) / b.height - 0.5;
-        if (h1) h1.style.transform = `rotateY(${(x * 16).toFixed(2)}deg) rotateX(${(-y * 10).toFixed(2)}deg)`;
-        // The subtitle stays flat and legible; it sits on a shallower plane, so it
-        // shifts far less than the headline. Depth through motion, not ornament.
-        if (sub) sub.style.transform = `translate3d(${(x * -10).toFixed(1)}px, ${(y * -5).toFixed(1)}px, 0)`;
-      };
-      const onLeave = () => {
-        if (h1) h1.style.transform = rest;
-        if (sub) sub.style.transform = '';
-      };
+    // A real solid shows a different side as it turns. Recomputing the extrusion from
+    // the current angle is what separates this from a sticker with a fixed drop shadow.
+    // text-shadow inherits, so one string on the word drives all six letters.
+    const GREYS = ['#c9c8c3', '#a9a8a3', '#8b8a85', '#6f6e69', '#565550', '#414039'];
+    const extrude = (tiltY, tiltX) => {
+      const dx = -Math.sin((tiltY * Math.PI) / 180) * 0.02;
+      const dy = 0.019 * Math.cos((tiltX * Math.PI) / 180);
+      const layers = GREYS.map((g, i) => `${(dx * (i + 1)).toFixed(4)}em ${(dy * (i + 1)).toFixed(4)}em 0 ${g}`);
+      layers.push(`${(dx * 7).toFixed(4)}em ${(dy * 7).toFixed(4)}em .05em rgba(0,0,0,.68)`);
+      layers.push(`${(dx * 9).toFixed(4)}em ${(dy * 9).toFixed(4)}em .2em rgba(0,0,0,.5)`);
+      if (solid) solid.style.textShadow = layers.join(',');
+      if (word) {
+        const f =
+          `drop-shadow(${(dx * 4).toFixed(3)}em ${(dy * 4).toFixed(3)}em .03em rgba(0,0,0,.66)) ` +
+          `drop-shadow(${(dx * 9).toFixed(3)}em ${(dy * 9).toFixed(3)}em .18em rgba(0,0,0,.55))`;
+        // per letter: a filter on the word would flatten the 3D space they live in
+        Array.prototype.forEach.call(word.children, (drop) => {
+          if (drop.firstChild) drop.firstChild.style.filter = f;
+        });
+      }
+    };
+    extrude(-11, 6);
 
-      hero.addEventListener('pointermove', onMove);
-      hero.addEventListener('pointerleave', onLeave);
-      tilt = () => {
-        hero.removeEventListener('pointermove', onMove);
-        hero.removeEventListener('pointerleave', onLeave);
+    if (reduced) {
+      return () => {
+        clearTimeout(settle);
+        removeEventListener('resize', stitch);
       };
     }
 
+    // The rotation itself is a CSS animation on the compositor. Only the shadow needs
+    // JS, and a 7s drift does not need it 60 times a second — 8/s is imperceptible and
+    // keeps the main thread free. It also stops entirely when the hero scrolls away.
+    let drifting = true;
+    let visible = true;
+    let timer = 0;
+    const t0 = performance.now();
+    const tick = () => {
+      if (drifting && visible && !document.hidden) {
+        const phase = Math.sin((((performance.now() - t0) / 7000) % 1) * Math.PI * 2);
+        extrude(-1 + phase * 10, 4 + phase * 2);
+      }
+      timer = setTimeout(tick, 120);
+    };
+    tick();
+
+    let io;
+    if ('IntersectionObserver' in window && hero) {
+      io = new IntersectionObserver((entries) => {
+        visible = entries[0].isIntersecting;
+      });
+      io.observe(hero);
+    }
+
+    const onMove = (e) => {
+      drifting = false;
+      hero.classList.add('gw-hero--tilting');
+      const b = hero.getBoundingClientRect();
+      const x = (e.clientX - b.left) / b.width - 0.5;
+      const y = (e.clientY - b.top) / b.height - 0.5;
+      const ty = x * 34;
+      const tx = -y * 20;
+      if (h1) {
+        h1.style.transition = 'none';
+        h1.style.transform = `rotateY(${ty.toFixed(1)}deg) rotateX(${tx.toFixed(1)}deg)`;
+      }
+      // The subtitle stays flat and legible; it sits on a shallower plane, so it
+      // shifts far less than the headline. Depth through motion, not ornament.
+      if (sub) sub.style.transform = `translate3d(${(x * -10).toFixed(1)}px, ${(y * -5).toFixed(1)}px, 0)`;
+      extrude(ty, tx);
+    };
+    const onLeave = () => {
+      if (h1) {
+        h1.style.transition = '';
+        h1.style.transform = '';
+      }
+      if (sub) sub.style.transform = '';
+      hero.classList.remove('gw-hero--tilting');
+      drifting = true;
+    };
+
+    hero.addEventListener('pointermove', onMove);
+    hero.addEventListener('pointerleave', onLeave);
+
     return () => {
       clearTimeout(settle);
+      clearTimeout(timer);
       removeEventListener('resize', stitch);
-      if (tilt) tilt();
+      hero.removeEventListener('pointermove', onMove);
+      hero.removeEventListener('pointerleave', onLeave);
+      if (io) io.disconnect();
     };
   }, []);
 
@@ -287,6 +357,7 @@ export default function GravityLanding() {
     const field = fieldRef.current;
     const orbEl = orbRef.current;
     const shipEl = shipRef.current;
+    const shadowEl = shadowRef.current;
 
     measure();
     const ro = new ResizeObserver(measure);
@@ -360,20 +431,37 @@ export default function GravityLanding() {
       orb.current.y = Math.max(16, Math.min(h - 16, orb.current.y + orb.current.vy * step));
 
       const speed = Math.hypot(orb.current.vx, orb.current.vy);
+      let turned = 0;
       if (speed > 0.4) {
         // ship art points up, so heading 0 means -y: offset atan2 by a quarter turn
         const target = Math.atan2(orb.current.vy, orb.current.vx) + Math.PI / 2;
         let diff = target - heading.current;
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
-        heading.current += diff * (1 - Math.pow(1 - TURN, step));
+        turned = diff * (1 - Math.pow(1 - TURN, step));
+        heading.current += turned;
       }
 
       if (!falling.current) {
-        orbEl.style.transform = `translate(${orb.current.x}px,${orb.current.y}px)`;
-        shipEl.style.transform = `rotate(${heading.current}rad)`;
         const thrust = Math.min(1, speed / 5) * (thrusting ? 1 : 0.2);
+
+        // Roll into the turn, the way an aircraft does. The bank eases back toward level
+        // so the ship settles instead of snapping upright.
+        const wantBank = Math.max(-MAX_BANK, Math.min(MAX_BANK, (turned / Math.max(dt, 0.001)) * 7));
+        bank.current += (wantBank - bank.current) * Math.min(1, 0.12 * step);
+        const pitch = thrust * MAX_PITCH;
+
+        orbEl.style.transform = `translate(${orb.current.x}px,${orb.current.y}px)`;
+        shipEl.style.transform =
+          `rotate(${heading.current}rad) rotateY(${bank.current.toFixed(1)}deg) rotateX(${pitch.toFixed(1)}deg)`;
         orbEl.style.setProperty('--thrust', thrust.toFixed(3));
+
+        if (shadowEl) {
+          // slides out from under the ship as it leans, and narrows as it banks over
+          const lean = bank.current / MAX_BANK;
+          shadowEl.style.transform =
+            `translateX(${(-lean * 5).toFixed(1)}px) scaleX(${(1 - Math.abs(lean) * 0.45).toFixed(2)})`;
+        }
       }
 
       if (engaged.current && !panelRef.current && !falling.current && Date.now() > cooldown.current) {
@@ -563,7 +651,7 @@ export default function GravityLanding() {
         <section className="gw-hero" ref={heroRef}>
           <div className="gw-hero-eyebrow">hey, i&apos;m</div>
           <h1 className="gw-h1" ref={h1Ref}>
-            <span className="gw-h1-word gw-h1-word--solid">
+            <span className="gw-h1-word gw-h1-word--solid" ref={solidWordRef}>
               {FATHAN.map((l, idx) => (
                 <span key={idx} className="gw-letter-drop" style={{ animationDelay: `${l.delay}s` }}>
                   <span className="gw-letter" style={{ '--z': `${l.z}px` }}>
@@ -640,6 +728,8 @@ export default function GravityLanding() {
                   }}
                 >
                   <span className="gw-node-ring-dashed" />
+                  <span className="gw-disk gw-disk-b" />
+                  <span className="gw-disk gw-disk-c" />
                   <span className="gw-node-ring-pulse" />
                   {n.glyph}
                 </span>
@@ -651,6 +741,7 @@ export default function GravityLanding() {
             ))}
 
             <div ref={orbRef} className="gw-orb">
+              <span ref={shadowRef} className="gw-ship-shadow" />
               <div ref={shipRef} className="gw-ship">
                 <span className="gw-ship-flame" />
                 <ShipSvg />
