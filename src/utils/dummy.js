@@ -1,3 +1,4 @@
+import rangkai from '../assets/images/rangkai.jpg'
 import warnada from '../assets/images/warnada.jpg'
 
 const data = {
@@ -57,6 +58,14 @@ const data = {
       { title: 'QMS', client: 'Bio Farma', stack: 'Frontend Engineer · 2023 — 2025', demo: '', img: '', thumb: 'qms', tone: 'cyan' }
     ],
     personal: [
+      {
+        title: 'Rangkai',
+        desc: 'Dashboard builder for factory teams',
+        stack: 'React · TypeScript · ECharts',
+        demo: 'https://rangkay.github.io/',
+        img: rangkai,
+        thumb: ''
+      },
       {
         title: 'Warnada',
         desc: 'Music player with synced lyrics',
