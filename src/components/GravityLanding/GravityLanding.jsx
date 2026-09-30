@@ -81,6 +81,101 @@ function ShipSvg() {
   );
 }
 
+// Drawn stand-ins for projects that have no screenshot to show. They are deliberately
+// abstract — a gear, a gauge, a cone — so none of them can pass for a picture of a client's
+// actual system, and none borrows a client's logo. A real screenshot goes in `img` instead.
+const TONES = {
+  cyan: ['#22e0dd', '#3b82f6'],
+  violet: ['#ff5cf0', '#7c5cff']
+};
+
+// A plain function rather than a component, so it needs no prop-types. Gradient ids come
+// from kind+tone; two rows that share both would share identical definitions anyway.
+function thumbArt(kind, tone = 'cyan') {
+  const [a, b] = TONES[tone] || TONES.cyan;
+  const uid = `${kind}-${tone}`;
+  const bg = `gw-tb-${uid}`;
+  const fg = `gw-tf-${uid}`;
+  const glow = `gw-tg-${uid}`;
+
+  return (
+    <svg className="gw-thumb-art" viewBox="0 0 96 64" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id={bg} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#15151f" />
+          <stop offset="100%" stopColor="#0a0a10" />
+        </linearGradient>
+        <linearGradient id={fg} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={a} />
+          <stop offset="100%" stopColor={b} />
+        </linearGradient>
+        <radialGradient id={glow} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={a} stopOpacity="0.28" />
+          <stop offset="100%" stopColor={a} stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`${fg}-cone`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3a3450" />
+          <stop offset="100%" stopColor="#1a1724" />
+        </linearGradient>
+      </defs>
+      <rect width="96" height="64" fill={`url(#${bg})`} />
+
+      {kind === 'cmms' && (
+        <g>
+          <path d="M0 16H96M0 32H96M0 48H96M24 0V64M48 0V64M72 0V64" stroke="#fff" strokeOpacity="0.04" />
+          <circle cx="48" cy="32" r="30" fill={`url(#${glow})`} />
+          {/* teeth: a thick dashed ring, twelve of them */}
+          <circle cx="48" cy="32" r="17" fill="none" stroke={`url(#${fg})`} strokeWidth="7" strokeDasharray="4.45 4.45" />
+          <circle cx="48" cy="32" r="14.5" fill={`url(#${fg})`} />
+          <circle cx="48" cy="32" r="6.5" fill="#0d0d14" />
+          <circle cx="48" cy="32" r="2" fill={a} />
+        </g>
+      )}
+
+      {kind === 'qms' && (
+        <g>
+          <path d="M0 16H96M0 32H96M0 48H96M24 0V64M48 0V64M72 0V64" stroke="#fff" strokeOpacity="0.04" />
+          <circle cx="48" cy="32" r="30" fill={`url(#${glow})`} />
+          <circle cx="48" cy="32" r="18" fill="none" stroke="#fff" strokeOpacity="0.1" strokeWidth="5" />
+          {/* 75% of the circumference (113) — a gauge that is mostly, not fully, there */}
+          <circle
+            cx="48"
+            cy="32"
+            r="18"
+            fill="none"
+            stroke={`url(#${fg})`}
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray="84.8 113.1"
+            transform="rotate(-90 48 32)"
+          />
+          <path d="M40.5 32.5L45.5 37.5L56 26" fill="none" stroke={a} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+      )}
+
+      {kind === 'volcano' && (
+        <g>
+          {/* the dashed radius ring the app itself draws around a crater */}
+          <circle cx="48" cy="34" r="25" fill="none" stroke="#ff6b6b" strokeOpacity="0.55" strokeWidth="1" strokeDasharray="3 3" />
+          <ellipse cx="48" cy="38" rx="30" ry="19" fill="#ff7a4d" fillOpacity="0.17" />
+          {/* ash plume: soft overlapping discs drifting off downwind */}
+          <circle cx="52" cy="15" r="6" fill="#cfd3e6" fillOpacity="0.22" />
+          <circle cx="59" cy="10" r="7.5" fill="#cfd3e6" fillOpacity="0.16" />
+          <circle cx="68" cy="8" r="8.5" fill="#cfd3e6" fillOpacity="0.11" />
+          <circle cx="47" cy="20" r="4.5" fill="#cfd3e6" fillOpacity="0.3" />
+          {/* cone */}
+          <path d="M14 56L40 27Q48 23 56 27L82 56Z" fill={`url(#${fg}-cone)`} />
+          <path d="M14 56L40 27" stroke="#ff9a6b" strokeOpacity="0.35" strokeWidth="0.8" fill="none" />
+          <path d="M40 27Q48 23 56 27L53 30Q48 28 43 30Z" fill="#ff7a4d" />
+          <path d="M44 28.6Q48 27.4 52 28.6" stroke="#ffd2a6" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+          <path d="M48 30L46 40L48 38L50 46L51 35Z" fill="#ff7a4d" fillOpacity="0.7" />
+          <path d="M0 56H96V64H0Z" fill="#0b0b11" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
 export default function GravityLanding() {
   const [panel, setPanel] = useState(null);
   const [visited, setVisited] = useState([]);
@@ -797,12 +892,19 @@ export default function GravityLanding() {
                     {group.rows.map((p) => {
                       const body = (
                         <>
-                          <span className="gw-work-thumb">{p.img && <img src={p.img} alt="" loading="lazy" />}</span>
+                          <span className="gw-work-thumb">
+                            {p.img ? (
+                              <img src={p.img} alt="" loading="lazy" />
+                            ) : (
+                              p.thumb && thumbArt(p.thumb, p.tone)
+                            )}
+                          </span>
                           <span className="gw-work-body">
                             <span className="gw-work-title">
                               {p.title}
                               {p.client && <span className="gw-work-client">{p.client}</span>}
                             </span>
+                            {p.desc && <span className="gw-work-desc">{p.desc}</span>}
                             <span className="gw-work-stack">{p.stack}</span>
                           </span>
                           <span className="gw-work-arrow">{p.demo ? '↗' : 'internal'}</span>
