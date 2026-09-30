@@ -58,20 +58,20 @@ const data = {
     ],
     personal: [
       {
-        title: 'Gunung Fire',
-        desc: 'Real-time volcano monitoring',
-        stack: 'React · TypeScript · Leaflet',
-        demo: 'https://gunungfire.github.io/',
-        img: '',
-        thumb: 'volcano'
-      },
-      {
         title: 'Warnada',
         desc: 'Music player with synced lyrics',
         stack: 'React · TypeScript · PWA',
         demo: 'https://warnada.github.io/',
         img: warnada,
         thumb: ''
+      },
+      {
+        title: 'Gunung Fire',
+        desc: 'Real-time volcano monitoring',
+        stack: 'React · TypeScript · Leaflet',
+        demo: 'https://gunungfire.github.io/',
+        img: '',
+        thumb: 'volcano'
       }
     ]
   }
