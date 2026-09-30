@@ -548,7 +548,7 @@
   position: relative;
   width: 100%;
   max-width: 900px;
-  max-height: 88vh;
+  max-height: 92vh;
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--surface-1);
@@ -567,7 +567,8 @@
   }
 
   .gw-panel {
-    max-height: 82vh;
+    /* 82vh left six project rows scrolling on every laptop; a centred dialog has room */
+    max-height: 90vh;
     border-radius: var(--r-lg);
     animation: gw-panelIn var(--t-enter) var(--ease);
   }
@@ -664,7 +665,7 @@
   grid-template-columns: auto 1fr auto;
   gap: 16px;
   align-items: center;
-  padding: 14px 12px;
+  padding: 12px 12px;
   border-top: 1px solid var(--line-subtle);
   border-radius: var(--r-md);
   transition:
@@ -725,7 +726,7 @@
 
 @media (max-height: 800px) and (min-width: 521px) {
   .gw-work-row {
-    padding-block: 8px;
+    padding-block: 6px;
   }
 
   .gw-work-group + .gw-work-group {
