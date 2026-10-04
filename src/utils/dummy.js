@@ -48,7 +48,7 @@ const data = {
   ],
 
   // Thumbnails: `img` is a real screenshot; `thumb` names a drawn stand-in (see
-  // ThumbArt in GravityLanding.jsx). Client work has no public URL, so those rows render
+  // thumbArt in EventHorizon/Panels.jsx). Client work has no public URL, so those rows render
   // as plain rows marked internal rather than as dead links — and their art is abstract
   // on purpose, so it cannot be mistaken for a screenshot of a client's system.
   projects: {

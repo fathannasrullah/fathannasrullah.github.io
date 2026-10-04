@@ -1,9 +1,9 @@
-import GravityLanding from './components/GravityLanding/GravityLanding';
+import EventHorizon from './components/EventHorizon/EventHorizon';
 
 function App() {
   return (
     <div className="App">
-      <GravityLanding />
+      <EventHorizon />
     </div>
   );
 }
